@@ -1,0 +1,27 @@
+{
+  "schema": "synapsevm.neuroblock.v1",
+  "name": "TargetTrack",
+  "version": "1.0.0",
+  "description": "TargetTrack NeuroBlock",
+  "organism": "Drosophila melanogaster",
+  "sourceDataset": "engineered-or-fragment",
+  "neuronModel": "LIF_FIXED_V1",
+  "numericFormat": "Q16.16",
+  "tickUs": 1000,
+  "inputs": [
+    "event_vision"
+  ],
+  "outputs": [
+    "targetX",
+    "targetY",
+    "targetStrength",
+    "visible"
+  ],
+  "deadlineUs": 10000,
+  "priorityClass": "nominal",
+  "stateful": true,
+  "neuronCount": 80,
+  "synapseCount": 79,
+  "blockBytesSha256": "0xa40ea2b4d31880f0c35010c2691fffc60803ddfd52681558d4cbb637f2d6a3fd",
+  "blockRoot": "0x77fc3483674eb5a546b5e58c070cd1ce013e617df62c6855b05b48ec46fa123f"
+}

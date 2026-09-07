@@ -1,0 +1,24 @@
+{
+  "schema": "synapsevm.neurostack.v1",
+  "name": "BioPilot",
+  "version": "0.1.0",
+  "nodes": [
+    { "id": "loom", "block": "LoomGuard@1.0.0" },
+    { "id": "flow", "block": "FlowSense@1.0.0" },
+    { "id": "heading", "block": "HeadingCell@1.0.0" },
+    { "id": "track", "block": "TargetTrack@1.0.0" }
+  ],
+  "edges": [
+    { "from": "flow.optic_flow", "to": "heading.opticFlowRotation" },
+    { "from": "track.target_bearing", "to": "heading.targetBearing" }
+  ],
+  "arbitration": {
+    "rules": [
+      { "if": "LoomGuard.trigger", "output": "emergency_avoidance", "priority": 100 },
+      { "if": "TargetTrack.visible", "output": "HeadingCell.steer", "priority": 50 },
+      { "else": true, "output": "maintain_heading", "priority": 10 }
+    ],
+    "loom.trigger": "hard_override"
+  },
+  "stackRoot": null
+}

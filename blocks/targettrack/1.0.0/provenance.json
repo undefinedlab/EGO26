@@ -1,0 +1,20 @@
+{
+  "connectomicProvenance": {
+    "note": "Engineered small-target tracker (honest provenance)"
+  },
+  "computationalDynamics": {
+    "neuronModel": "LIF_FIXED_V1",
+    "numericFormat": "Q16.16"
+  },
+  "adapterSemantics": {
+    "inputs": [
+      "event_vision"
+    ],
+    "outputs": [
+      "targetX",
+      "targetY",
+      "targetStrength",
+      "visible"
+    ]
+  }
+}

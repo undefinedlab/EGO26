@@ -1,0 +1,8 @@
+{
+  "ports": [
+    "targetX",
+    "targetY",
+    "targetStrength",
+    "visible"
+  ]
+}
