@@ -1,0 +1,9 @@
+[package]
+name = "synapsevm-merkle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Keccak256 commitments for traces and batch roots"
+
+[dependencies]
+tiny-keccak = { version = "2.0.2", features = ["keccak"] }

@@ -1,0 +1,11 @@
+[package]
+name = "synapsevm-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Canonical NeuroBlock / NeuroReceipt types"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
