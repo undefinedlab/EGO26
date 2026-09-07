@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+
+# Node workspace for NeuroLab + validator-api.
+# Prefer: corey@npm:pnpm install -g pnpm && pnpm install
+# Fallback: npm install from each app directory.

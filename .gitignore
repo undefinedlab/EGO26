@@ -1,0 +1,21 @@
+/target
+**/*.rs.bk
+node_modules/
+.next/
+dist/
+out/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.local
+.DS_Store
+Thumbs.db
+receipt-bundles/**
+.idea/
+.vscode/
+
+# Local Library releases (machine-local content)
+.synapse-library/

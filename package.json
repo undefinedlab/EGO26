@@ -1,0 +1,26 @@
+{
+  "name": "synapsevm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Verified nervous system for autonomous machines — NeuroBlocks + SynapseVM + NeuroReceipts",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "test:core": "cargo test -p synapsevm-core",
+    "test:e2e": "cargo test -p synapsevm-core --test loomguard_e2e",
+    "build:core": "cargo build -p synapsevm-core --release",
+    "cli": "cargo run -q -p synapsevm-cli --",
+    "compile:loomguard": "python -m compiler.synapse_compiler.package_block",
+    "compile:library": "python -m compiler.synapse_compiler.package_library",
+    "bench": "cargo run -q -p synapsevm-cli -- bench",
+    "dev:lab": "npm run dev -w @synapsevm/neurolab-web",
+    "dev:validator": "npm run dev -w @synapsevm/validator-api",
+    "build:lab": "npm run build -w @synapsevm/neurolab-web",
+    "test:protocol": "node --import tsx --test tests/scenarios/*.test.ts",
+    "test:library": "node --import tsx --test tests/library.test.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
