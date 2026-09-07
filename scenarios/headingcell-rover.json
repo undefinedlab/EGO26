@@ -1,0 +1,12 @@
+{
+  "id": "headingcell-rover-corridor",
+  "embodiment": "rover",
+  "block": "HeadingCell@1.0.0",
+  "world": {
+    "corridor": true
+  },
+  "sensors": [
+    "imu"
+  ],
+  "success": "maintain_corridor"
+}

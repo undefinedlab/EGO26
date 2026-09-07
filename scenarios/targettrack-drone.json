@@ -1,0 +1,12 @@
+{
+  "id": "targettrack-drone-chase",
+  "embodiment": "drone",
+  "block": "TargetTrack@1.0.0",
+  "world": {
+    "target": "moving_ball"
+  },
+  "sensors": [
+    "event_camera"
+  ],
+  "success": "keep_target_visible"
+}

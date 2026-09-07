@@ -1,0 +1,16 @@
+{
+  "artifactBytes": 167185,
+  "avgSpikesPerTick": 26.395,
+  "avgTickMs": 0.5835829999999995,
+  "baselines": {
+    "classicalControllerTickMs": 0.01,
+    "llmAgentProxyBilledMsPerDecision": 320,
+    "note": "LLM baseline is a latency proxy for cloud agent loops, not an intelligence claim"
+  },
+  "block": "LoomGuard@1.0.0",
+  "networkCallsPerTick": 0,
+  "neuronCount": 780,
+  "p50TickMs": 0.5479999999999999,
+  "p95TickMs": 0.8735999999999999,
+  "samples": 200
+}

@@ -1,0 +1,12 @@
+{
+  "id": "flowsense-drone-disturbance",
+  "embodiment": "drone",
+  "block": "FlowSense@1.0.0",
+  "world": {
+    "disturbance": "lateral_gust"
+  },
+  "sensors": [
+    "event_camera"
+  ],
+  "success": "stabilize_hover"
+}

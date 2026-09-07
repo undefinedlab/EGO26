@@ -1,0 +1,12 @@
+{
+  "id": "flowsense-rover-gps-denied",
+  "embodiment": "rover",
+  "block": "FlowSense@1.0.0",
+  "world": {
+    "gps": false
+  },
+  "sensors": [
+    "event_camera"
+  ],
+  "success": "estimate_motion"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "targettrack-camera-center",
+  "embodiment": "camera",
+  "block": "TargetTrack@1.0.0",
+  "world": {
+    "gimbal": true
+  },
+  "sensors": [
+    "event_camera"
+  ],
+  "success": "center_target"
+}

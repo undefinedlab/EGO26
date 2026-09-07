@@ -1,0 +1,17 @@
+{
+  "id": "headingcell-drone-waypoint",
+  "embodiment": "drone",
+  "block": "HeadingCell@1.0.0",
+  "world": {
+    "waypoint": [
+      10,
+      0,
+      0
+    ]
+  },
+  "sensors": [
+    "imu",
+    "optic_flow"
+  ],
+  "success": "align_heading"
+}

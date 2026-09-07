@@ -1,0 +1,11 @@
+{
+  "id": "loomguard-car-brake",
+  "embodiment": "car",
+  "block": "LoomGuard@1.0.0",
+  "world": {
+    "initialSpeed": 12,
+    "obstacles": ["crossing_pedestrian"]
+  },
+  "sensors": ["event_camera", "depth_proxy"],
+  "success": "no_collision"
+}
