@@ -1,0 +1,20 @@
+{
+  "connectomicProvenance": {
+    "note": "Engineered optic-flow primitive (honest non-connectome topology)"
+  },
+  "computationalDynamics": {
+    "neuronModel": "LIF_FIXED_V1",
+    "numericFormat": "Q16.16"
+  },
+  "adapterSemantics": {
+    "inputs": [
+      "event_vision"
+    ],
+    "outputs": [
+      "flowX",
+      "flowY",
+      "rotation",
+      "confidence"
+    ]
+  }
+}

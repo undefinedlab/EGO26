@@ -1,0 +1,21 @@
+{
+  "connectomicProvenance": {
+    "note": "CX/heading-inspired fragment; dynamics + adapters engineered"
+  },
+  "computationalDynamics": {
+    "neuronModel": "LIF_FIXED_V1",
+    "numericFormat": "Q16.16"
+  },
+  "adapterSemantics": {
+    "inputs": [
+      "yawDelta",
+      "opticFlowRotation",
+      "targetBearing"
+    ],
+    "outputs": [
+      "headingEstimate",
+      "headingError",
+      "steer"
+    ]
+  }
+}

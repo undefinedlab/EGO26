@@ -1,0 +1,7 @@
+{
+  "ports": [
+    "headingEstimate",
+    "headingError",
+    "steer"
+  ]
+}

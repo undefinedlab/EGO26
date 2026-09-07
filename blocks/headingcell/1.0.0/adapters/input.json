@@ -1,0 +1,7 @@
+{
+  "ports": [
+    "yawDelta",
+    "opticFlowRotation",
+    "targetBearing"
+  ]
+}

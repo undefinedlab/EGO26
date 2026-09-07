@@ -1,0 +1,27 @@
+{
+  "schema": "synapsevm.neuroblock.v1",
+  "name": "FlowSense",
+  "version": "1.0.0",
+  "description": "FlowSense NeuroBlock",
+  "organism": "Drosophila melanogaster",
+  "sourceDataset": "engineered-or-fragment",
+  "neuronModel": "LIF_FIXED_V1",
+  "numericFormat": "Q16.16",
+  "tickUs": 1000,
+  "inputs": [
+    "event_vision"
+  ],
+  "outputs": [
+    "flowX",
+    "flowY",
+    "rotation",
+    "confidence"
+  ],
+  "deadlineUs": 10000,
+  "priorityClass": "nominal",
+  "stateful": true,
+  "neuronCount": 64,
+  "synapseCount": 63,
+  "blockBytesSha256": "0x669e3b10aed9cc061e582fa0de43669ec70123e956d91848bfce7ec20bd16d82",
+  "blockRoot": "0x8905e6a1a28680e36b67b9affc1f4e003ca01d8e12c843e5fc2e90f824aa06e4"
+}
