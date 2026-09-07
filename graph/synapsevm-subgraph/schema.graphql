@@ -1,0 +1,49 @@
+type NeuroBlock @entity(immutable: false) {
+  id: Bytes!
+  name: String!
+  version: String!
+  organism: String!
+  sourceDataset: String!
+  neuronCount: Int!
+  synapseCount: Int!
+  blockRoot: Bytes!
+  manifestURI: String!
+  publisher: Bytes!
+  createdAt: BigInt!
+}
+
+type NeuroStack @entity(immutable: false) {
+  id: Bytes!
+  name: String!
+  version: String!
+  stackRoot: Bytes!
+  manifestURI: String!
+  blocks: [NeuroStackBlock!]! @derivedFrom(field: "stack")
+}
+
+type NeuroStackBlock @entity(immutable: true) {
+  id: Bytes!
+  stack: NeuroStack!
+  blockRoot: Bytes!
+  nodeId: String!
+}
+
+type Validation @entity(immutable: true) {
+  id: Bytes!
+  requestHash: Bytes!
+  receiptRoot: Bytes!
+  blockRoot: Bytes!
+  validator: Bytes!
+  score: Int!
+  tag: String
+  timestamp: BigInt!
+}
+
+type ReceiptBatch @entity(immutable: false) {
+  id: Bytes!
+  deviceId: String!
+  firstSequence: BigInt!
+  lastSequence: BigInt!
+  receiptRoot: Bytes!
+  validation: Validation
+}

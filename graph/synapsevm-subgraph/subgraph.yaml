@@ -1,0 +1,17 @@
+{
+  "name": "synapsevm-subgraph",
+  "version": "0.1.0",
+  "description": "Indexes NeuroBlock / NeuroStack / Validation / ReceiptBatch",
+  "dataSources": [
+    {
+      "kind": "ethereum/contract",
+      "name": "NeuroRegistry",
+      "network": "sepolia",
+      "source": {
+        "address": "0x0000000000000000000000000000000000000000",
+        "abi": "NeuroRegistry",
+        "startBlock": 0
+      }
+    }
+  ]
+}

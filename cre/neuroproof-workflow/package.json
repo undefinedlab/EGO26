@@ -1,0 +1,7 @@
+{
+  "name": "@synapsevm/cre-neuroproof",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "workflow.ts"
+}
