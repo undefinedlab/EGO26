@@ -1,0 +1,43 @@
+{
+  "schema": "synapsevm.neuroblock.v1",
+  "name": "LoomGuard",
+  "version": "1.0.0",
+  "description": "Connectome-derived looming/avoidance reflex primitive (FlyWire optic escape)",
+  "organism": "Drosophila melanogaster",
+  "sourceDataset": "flywire-fafb-v783-2.5k-typed-drone",
+  "neuronModel": "LIF_FIXED_V1",
+  "numericFormat": "Q16.16",
+  "tickUs": 1000,
+  "inputs": [
+    "event_vision",
+    "depth_proxy"
+  ],
+  "outputs": [
+    "danger",
+    "avoid_x",
+    "avoid_y",
+    "trigger"
+  ],
+  "deadlineUs": 10000,
+  "priorityClass": "safety_reflex",
+  "stateful": true,
+  "neuronCount": 780,
+  "synapseCount": 7538,
+  "nirSha256": "0x6c38ff9ac977637752aa11792c044ffd1aa7fb00e211d568c2c9df61a4e69532",
+  "topologySha256": "0x886d1b35a12421447829239f667b2a1630b685d76311e759e05aa83930737720",
+  "weightsSha256": "0xc4b8098e1fb396cb30153b4dce0cb761075b645b1b80826b01576f39ffde5d4d",
+  "provenanceSha256": "0x8dec2e72ab85669d8375ea025c7a80a78c6a9da2a7d8cb8864534c74a64a1ab4",
+  "paramsSha256": "0x457d6164cc0f557561d78c8b73f6e6ca498d2907ab0fcf8a3df44b8537a640e9",
+  "inputAdapterSha256": "0xdc33e1c078e9510be9da4ee61b8945130c76f17b6804ba566039baefb66ea623",
+  "outputAdapterSha256": "0x03aa2ac81430d6a02653c29614d69ef10e4833347f1463eb4ca2e0868f6a345a",
+  "blockBytesSha256": "0x733e2bc401b6265223e129faf02b4f0e86825db18e1cd524b3492cb8553b5651",
+  "artifacts": {
+    "block": "block.json",
+    "topology": "topology.bin",
+    "weights": "weights.bin",
+    "params": "params.bin",
+    "nir": "circuit.nir.json",
+    "provenance": "provenance.json"
+  },
+  "blockRoot": "0x2f13f6e35470f7836022323ba4db6eeadc2914f140455621b7768432f57e4829"
+}
