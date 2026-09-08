@@ -36,13 +36,18 @@ export type ReceiptEvent = {
   distance: number;
   caseId: CaseId;
   blockId: BlockId;
+  modelBytes: string;
+  stateBeforeBytes: number[];
+  stateAfterBytes: number[];
+  output: StepView;
   /** One simulation tick before the trigger — for WHY? replay. */
   before: FrameSnapshot | null;
 };
 
 export type WhyDetail = {
   receipt: ReceiptEvent;
-  replayMatch: "idle" | "MATCH" | "MISMATCH";
+  replayMatch: "idle" | "MATCH" | "MISMATCH" | "ERROR";
+  replayError?: string;
   replayFired: number[];
   replayTrigger: boolean;
 };
@@ -54,6 +59,9 @@ type LabState = {
   tick: number;
   distance: number;
   speed: number;
+  /** Multiplier on the scene's baseline approach speed. 1 = as authored. */
+  speedScale: number;
+  /** Uniform jitter added to every sensor channel, in input units. */
   noise: number;
   blockEnabled: boolean;
   last: StepView | null;
@@ -71,6 +79,7 @@ export const useLabStore = create<LabState>((set) => ({
   tick: 0,
   distance: 10,
   speed: 0.055,
+  speedScale: 1,
   noise: 0,
   blockEnabled: true,
   last: null,
