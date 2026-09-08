@@ -1,0 +1,21 @@
+{
+  "schema": "synapsevm.neuroreceipt.v2",
+  "receiptId": "0x75f63a0edd5a1b6ccc26295c1bf06d58330d40008cab3383d14f9bf7fa3de48c",
+  "blockRoot": "0xa52bec2c1a0741e1f2140c9e0ff692e3f6e7aceb38d48d2c99cd0616149a2e7b",
+  "stackRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "deviceId": "simulator-001",
+  "sequence": 1,
+  "localTimestampUs": 196000,
+  "tick": 196,
+  "inputRoot": "0xde845a82c50e1d5561fb0698613a7fe51e3db11b7b304e1c37e6a5b8bdc1885d",
+  "encodedInputRoot": "0xde845a82c50e1d5561fb0698613a7fe51e3db11b7b304e1c37e6a5b8bdc1885d",
+  "stateBeforeRoot": "0x6edf92568592ec084e313c304f4b4d8038f0d1ba305c7bdcb4c3c35653643e90",
+  "traceRoot": "0xa09f1187f7326f32a2ad4d1baef327d1ab61b709583d40e43f5b0421bb7888d8",
+  "stateAfterRoot": "0x1cab1a6ebfae590cbce51262842d9ba1e82576516ddea5d5a17587102834b77e",
+  "actionType": "AVOID_LEFT",
+  "actionDataHash": "0xd6950d8a637e4fc451abeec3f6e779adc36f736d0899b6a53a792f79ee71e19f",
+  "previousReceiptHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "runtimeHash": "0x7e13a55dcfed08fcb7379f949fd26ff128c3268d46d4429297085a6ade7d903e",
+  "signatureScheme": "ed25519",
+  "signature": "0x829808a41ceb19c6c72d43ea7b46234dd4032ae97a7df55efedb166715a846abdb868d5e2a76b39e94c92072d9e7591eae3aff5c9a74a5978f85c72ee37c8204"
+}

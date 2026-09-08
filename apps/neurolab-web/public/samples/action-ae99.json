@@ -1,0 +1,7 @@
+{
+  "actionType": "AVOID_LEFT",
+  "danger": 32768,
+  "avoidX": 0,
+  "avoidY": 0,
+  "trigger": true
+}

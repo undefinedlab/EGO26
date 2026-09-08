@@ -1,0 +1,11 @@
+{
+  "id": "loomguard-drone-wall",
+  "embodiment": "drone",
+  "block": "LoomGuard@1.0.0",
+  "world": {
+    "initialSpeed": 4,
+    "obstacles": ["moving_wall"]
+  },
+  "sensors": ["event_camera", "depth_proxy"],
+  "success": "no_collision"
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "synapsevm.neuroblock.v1",
+  "name": "HeadingCell",
+  "version": "1.0.0",
+  "description": "HeadingCell NeuroBlock",
+  "organism": "Drosophila melanogaster",
+  "sourceDataset": "engineered-or-fragment",
+  "neuronModel": "LIF_FIXED_V1",
+  "numericFormat": "Q16.16",
+  "tickUs": 1000,
+  "inputs": [
+    "yawDelta",
+    "opticFlowRotation",
+    "targetBearing"
+  ],
+  "outputs": [
+    "headingEstimate",
+    "headingError",
+    "steer"
+  ],
+  "deadlineUs": 10000,
+  "priorityClass": "nominal",
+  "stateful": true,
+  "neuronCount": 48,
+  "synapseCount": 47,
+  "blockBytesSha256": "0x5ab6d98312b0511f79024879a09921857be1cb710573bfae49e9c88cf41e111a",
+  "blockRoot": "0x02444560d9ae227d0f4a81f2a0cc462ced68cf16cb99313f6a2d2b41e70aecf7"
+}
