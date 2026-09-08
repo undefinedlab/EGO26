@@ -1,5 +1,5 @@
-﻿/**
- * Discover (Explore) â€” aligned to NeuroLab design tokens.
+/**
+ * Discover (Explore) — aligned to NeuroLab design tokens.
  * Structure kept; palette/type/surfaces match the instrument system.
  */
 
@@ -587,7 +587,7 @@
 }
 
 .lib-row-meta span + span::before {
-  content: "Â·";
+  content: "·";
   margin-right: 0.55rem;
   color: var(--line-heavy);
 }
