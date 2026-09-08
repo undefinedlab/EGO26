@@ -18,7 +18,8 @@
     "dev:validator": "npm run dev -w @synapsevm/validator-api",
     "build:lab": "npm run build -w @synapsevm/neurolab-web",
     "test:protocol": "node --import tsx --test tests/scenarios/*.test.ts",
-    "test:library": "node --import tsx --test tests/library.test.ts"
+    "test:library": "node --import tsx --test tests/library.test.ts",
+    "test:verification": "node --import tsx --test tests/verification.test.ts"
   },
   "engines": {
     "node": ">=20"

@@ -1,280 +1,52 @@
 "use client";
-
-import { Shell } from "@/components/Shell";
+import {Shell} from "@/components/Shell";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-
-type Receipt = {
-  schema: string;
-  receiptId: string;
-  blockRoot: string;
-  stackRoot: string;
-  deviceId: string;
-  sequence: number;
-  localTimestampUs: number;
-  tick: number;
-  inputRoot: string;
-  encodedInputRoot: string;
-  stateBeforeRoot: string;
-  traceRoot: string;
-  stateAfterRoot: string;
-  actionType: string;
-  actionDataHash: string;
-  previousReceiptHash: string;
-  runtimeHash: string;
-  signatureScheme: string;
-  signature: string;
-};
-
-type ReplayResult = {
-  valid?: boolean;
-  match?: boolean;
-  actionType?: string;
-  error?: string;
-  message?: string;
-  [k: string]: unknown;
-};
-
-type Stage = {
-  id: string;
-  title: string;
-  status: "idle" | "running" | "pass" | "fail" | "skip";
-  detail: string;
-};
-
-function short(h: string, n = 14) {
-  if (!h) return "—";
-  return h.length <= n + 1 ? h : `${h.slice(0, n)}…`;
-}
-
-const FIELD_GROUPS: { title: string; keys: (keyof Receipt)[] }[] = [
-  {
-    title: "Identity",
-    keys: ["receiptId", "deviceId", "sequence", "tick", "localTimestampUs", "schema"],
-  },
-  {
-    title: "Commitments",
-    keys: [
-      "blockRoot",
-      "stackRoot",
-      "inputRoot",
-      "encodedInputRoot",
-      "stateBeforeRoot",
-      "traceRoot",
-      "stateAfterRoot",
-      "runtimeHash",
-      "previousReceiptHash",
-    ],
-  },
-  {
-    title: "Action",
-    keys: ["actionType", "actionDataHash", "signatureScheme", "signature"],
-  },
-];
-
-export default function VerifyPage() {
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [stages, setStages] = useState<Stage[]>([
-    { id: "local", title: "Local SynapseVM replay", status: "idle", detail: "Waiting" },
-    { id: "cre", title: "Chainlink CRE validation", status: "idle", detail: "Post-action trust plane" },
-    { id: "chain", title: "Onchain commitment", status: "idle", detail: "NeuroRegistry / batch root" },
-  ]);
-  const [raw, setRaw] = useState("");
-
-  useEffect(() => {
-    fetch("/samples/receipt-current.json")
-      .then((r) => r.json())
-      .then((j) => setReceipt(j as Receipt))
-      .catch((e) => setLoadError(String(e)));
-  }, []);
-
-  const setStage = (id: string, patch: Partial<Stage>) => {
-    setStages((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  };
-
-  const runLocal = async () => {
-    if (!receipt) return;
-    setBusy(true);
-    setStage("local", { status: "running", detail: "POST /v1/replay …" });
-    try {
-      const res = await fetch("http://127.0.0.1:8788/v1/replay", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          bundleDir: "receipt-bundles/75f63a0edd5a1b6c",
-          receipt,
-        }),
-      });
-      const json = (await res.json()) as ReplayResult;
-      setRaw(JSON.stringify(json, null, 2));
-      const ok = res.ok && json.valid === true;
-      setStage("local", {
-        status: ok ? "pass" : "fail",
-        detail: ok
-          ? `Replay MATCH · action ${json.actionType ?? receipt.actionType}`
-          : json.error || json.message || "Replay failed — is validator-api running?",
-      });
-      return ok;
-    } catch (e) {
-      const msg = String(e);
-      setRaw(
-        JSON.stringify(
-          {
-            valid: false,
-            message: "Start validator-api on :8788, then re-run local replay.",
-            error: msg,
-            note: "Validation is never in the reflex loop — offline replay only.",
-          },
-          null,
-          2,
-        ),
-      );
-      setStage("local", {
-        status: "fail",
-        detail: "Validator unavailable · replay not verified",
-      });
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const runAll = async () => {
-    await runLocal();
-    setStage("cre", { status: "skip", detail: "Not configured · no external validation has been performed" });
-    setStage("chain", { status: "skip", detail: "Not configured · no transaction or inclusion proof available" });
-  };
-
-  const checklist = useMemo(() => {
-    if (!receipt) return [];
-    return [
-      { label: "Sensor / input root", ok: !!receipt.inputRoot, value: short(receipt.inputRoot) },
-      { label: "State before", ok: !!receipt.stateBeforeRoot, value: short(receipt.stateBeforeRoot) },
-      { label: "Block root", ok: !!receipt.blockRoot, value: short(receipt.blockRoot) },
-      { label: "Trace root", ok: !!receipt.traceRoot, value: short(receipt.traceRoot) },
-      { label: "Action", ok: !!receipt.actionType, value: receipt.actionType },
-      { label: "Signature", ok: !!receipt.signature, value: receipt.signatureScheme },
-    ];
-  }, [receipt]);
-
-  return (
-    <Shell wide>
-      <div className="page-head">
-        <div className="page-head-copy">
-          <p className="lp-kicker">Trust plane</p>
-          <h1>Verify</h1>
-          <p>
-            Inspect a NeuroReceipt, replay it locally, and see exactly which checks have and have
-            not been performed. None of this sits in the reflex loop.
-          </p>
-        </div>
-        <div className="page-head-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={runAll}
-            disabled={busy || !receipt}
-            data-loading={busy ? "true" : undefined}
-          >
-            Check available verification
-          </button>
-          <button type="button" className="btn btn-ghost" onClick={runLocal} disabled={busy || !receipt}>
-            Local replay only
-          </button>
-        </div>
-      </div>
-
-      {loadError && (
-        <div className="notice notice-err" style={{ marginBottom: "var(--sp-6)" }} role="alert">
-          <span>Failed to load the sample receipt: {loadError}</span>
-        </div>
-      )}
-
-      <div className="verify-pipeline" aria-live="polite">
-        {stages.map((s, i) => (
-          <div key={s.id} className={`verify-stage status-${s.status}`}>
-            <div className="verify-stage-idx mono">{String(i + 1).padStart(2, "0")}</div>
-            <div>
-              <div className="verify-stage-title">{s.title}</div>
-              <div className="verify-stage-detail">{s.detail}</div>
-            </div>
-            <div className={`verify-badge ${s.status}`}>{s.status}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="verify-grid">
-        <section className="glass-panel verify-card" aria-labelledby="receipt-fields">
-          <div className="lp-kicker" id="receipt-fields">
-            NeuroReceipt fields
-          </div>
-          {!receipt ? (
-            <div className="stack-2" style={{ marginTop: "var(--sp-4)" }} aria-busy="true">
-              <div className="skeleton" style={{ height: 14, width: "40%" }} />
-              <div className="skeleton" style={{ height: 14, width: "90%" }} />
-              <div className="skeleton" style={{ height: 14, width: "75%" }} />
-              <div className="skeleton" style={{ height: 14, width: "85%" }} />
-            </div>
-          ) : (
-            FIELD_GROUPS.map((g) => (
-              <div key={g.title} className="verify-field-group">
-                <div className="verify-field-head">{g.title}</div>
-                {g.keys.map((k) => (
-                  <div key={k} className="verify-field-row">
-                    <span className="mono muted">{k}</span>
-                    <span className="mono verify-field-val">{String(receipt[k])}</span>
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
-        </section>
-
-        <div className="verify-right">
-          <section className="glass-panel verify-card">
-            <div className="lp-kicker">Recorded fields · presence only</div>
-            <p className="muted t-xs" style={{ marginTop: "var(--sp-2)" }}>
-              Field presence does not verify signatures or replay. Software evidence does not prove
-              sensor authenticity or physical actuation.
-            </p>
-            <div className="why-check-list">
-              {checklist.map((c) => (
-                <div key={c.label} className="why-check-row">
-                  <span className={c.ok ? "check-ok" : "check-bad"} aria-hidden>
-                    {c.ok ? "•" : "—"}
-                  </span>
-                  <span>
-                    {c.label}
-                    <span className="sr-only">{c.ok ? " — present" : " — missing"}</span>
-                  </span>
-                  <span className="mono muted">{c.value}</span>
-                </div>
-              ))}
-            </div>
-            {receipt && (
-              <div className="verify-action-banner">
-                <div className="lp-kicker">Recorded action</div>
-                <div className="verify-action-type">{receipt.actionType}</div>
-                <div className="mono" style={{ marginTop: "var(--sp-1)", opacity: 0.75 }}>
-                  tick {receipt.tick} · device {receipt.deviceId}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="glass-panel verify-card">
-            <div className="lp-kicker">Replay response</div>
-            <pre className="verify-raw mono">{raw || "Run a check to see the replay JSON."}</pre>
-            <div className="cluster" style={{ marginTop: "var(--sp-4)" }}>
-              <Link href="/simulate" className="btn btn-ghost btn-sm">
-                Generate one in Sim Lab
-              </Link>
-            </div>
-          </section>
-        </div>
-      </div>
-    </Shell>
-  );
+import {useEffect,useRef,useState} from "react";
+import {verifyArtifact,verifyBrowserEvidence,signedReplayReport,captureEvidence,type VerificationReport,type BrowserEvidence} from "@/lib/verification";
+import {SynapseVmJs,q16} from "@/lib/synapseVm";
+import "./verify.css";
+const layers=["Source","Build","Artifact","Deployment","Execution","Replay","External","Anchor"];
+type Mode="artifact"|"browser"|"signed";
+function download(name:string,value:unknown){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export default function VerifyPage(){
+ const [mode,setMode]=useState<Mode>("artifact"),[artifact,setArtifact]=useState(""),[filename,setFilename]=useState(""),[expected,setExpected]=useState(""),[evidence,setEvidence]=useState<BrowserEvidence|null>(null),[receipt,setReceipt]=useState(""),[bundle,setBundle]=useState("receipt-bundles/75f63a0edd5a1b6c"),[block,setBlock]=useState("blocks/loomguard/1.0.0/block.json"),[report,setReport]=useState<VerificationReport|null>(null),[rawResult,setRawResult]=useState<unknown>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
+ const revision=useRef(0);
+ function clear(){revision.current++;setReport(null);setRawResult(null);setError("");setBusy(false);}
+ function changeMode(m:Mode){clear();setMode(m);setNotice("");}
+ useEffect(()=>{if(new URLSearchParams(window.location.search).get("evidence")!=="simulator")return;try{const raw=sessionStorage.getItem("synapsevm.verify.evidence");if(!raw)throw Error("No captured simulator evidence. Generate an event and open Inspect WHY first.");setEvidence(JSON.parse(raw));setMode("browser");setNotice("Captured Sim Lab evidence loaded. Run replay to check it.");}catch(e){setError(String(e));}},[]);
+ async function upload(file:File|undefined,target:"artifact"|"browser"|"signed"){
+  if(!file)return;clear();const token=revision.current;setNotice("");if(target==="artifact"){setArtifact("");setFilename("");}else if(target==="browser")setEvidence(null);else setReceipt("");
+  try{if(file.size>(target==="signed"?1_000_000:20_000_000))throw Error("File exceeds the supported size limit.");const raw=await file.text();if(token!==revision.current)return;if(target==="artifact"){setArtifact(raw);setFilename(file.name);}else if(target==="browser"){const value=JSON.parse(raw);if(value?.format!=="synapsevm.browser-replay.v1")throw Error("Choose a browser-replay.v1 bundle containing model, input and exact pre-state.");setEvidence(value);}else setReceipt(raw);}catch(e){if(token===revision.current)setError(String(e));}
+ }
+ async function localExample(){
+  clear();setBusy(true);const token=revision.current;try{const r=await fetch("/blocks/loomguard/1.0.0/block.json");if(!r.ok)throw Error("Example model unavailable.");const model=await r.text(),vm=new SynapseVmJs(JSON.parse(model));vm.step([0,0,0,0],0);const before=Array.from(vm.snapshot()),input=[q16(.8),0,0,q16(.6)],out=vm.step(input,1),value=await captureEvidence(model,1,input,before,out,Array.from(vm.snapshot()));if(token!==revision.current)return;setEvidence(value);setNotice("Synthetic local example generated. Its neural execution is recorded; no device signature is attached.");}catch(e){if(token===revision.current)setError(String(e));}finally{if(token===revision.current)setBusy(false);}
+ }
+ async function signedExample(){clear();setBusy(true);const token=revision.current;try{const r=await fetch("/samples/receipt-current.json");if(!r.ok)throw Error("Sample unavailable.");const raw=await r.text();if(token!==revision.current)return;setReceipt(raw);setBundle("receipt-bundles/75f63a0edd5a1b6c");setBlock("blocks/loomguard/1.0.0/block.json");setNotice("Bundled signed sample loaded. It is not a live simulator receipt.");}catch(e){if(token===revision.current)setError(String(e));}finally{if(token===revision.current)setBusy(false);}}
+ async function run(){
+  clear();setBusy(true);const token=revision.current;
+  try{let next:VerificationReport;
+   if(mode==="artifact")next=await verifyArtifact(artifact,expected);
+   else if(mode==="browser")next=await verifyBrowserEvidence(evidence);
+   else {const value=JSON.parse(receipt);if(value?.schema!=="synapsevm.neuroreceipt.v2")throw Error("The local Rust verifier accepts neuroreceipt.v2.");const r=await fetch("/api/verify/replay",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({receipt:value,bundleDir:bundle,blockPath:block}),signal:AbortSignal.timeout(40000)});const result=await r.json();if(token!==revision.current)return;setRawResult(result);if(!r.ok)throw Error(result.message||result.error||"Validator unavailable. Start npm run dev:validator.");next=signedReplayReport(result,value);}
+   if(token===revision.current)setReport(next);
+  }catch(e){if(token===revision.current)setError(e instanceof Error?e.message:String(e));}finally{if(token===revision.current)setBusy(false);}
+ }
+ const canRun=mode==="artifact"?!!artifact:mode==="browser"?!!evidence:!!receipt;
+ return <Shell wide><div className="vf">
+ <header className="vf-header"><div><span className="vf-kicker">EVIDENCE WORKSPACE</span><h1>Know what was checked.</h1><p>Inspect the artifact. Reproduce the execution. Follow each claim from source to action.</p></div><Link href="/simulate" className="vf-link">Generate an event in Sim Lab ↗</Link></header>
+ <nav className="vf-modes" aria-label="Verification mode">{([["artifact","01","Artifact","Check downloaded software"],["browser","02","Local replay","Reproduce captured neural execution"],["signed","03","Signed receipt","Replay with the local Rust verifier"]] as const).map(([id,num,title,desc])=><button key={id} aria-pressed={mode===id} onClick={()=>changeMode(id)}><span>{num}</span><div><strong>{title}</strong><small>{desc}</small></div></button>)}</nav>
+ <div className="vf-layout"><section className="vf-input"><div className="vf-section-heading"><span className="vf-kicker">PROVIDE EVIDENCE</span><span>Local verification</span></div>
+ {mode==="artifact"&&<><h2>Which software are you checking?</h2><p>Upload a NeuroStack source package or a Block model. Compare its bytes with an expected digest when you have one.</p><label className="vf-upload"><b>Choose .synapse or block.json</b><span>{filename||"Maximum 20 MB; Block models up to 4 MB"}</span><input type="file" accept=".synapse,.json" aria-label="Upload artifact" onChange={e=>{void upload(e.target.files?.[0],"artifact");e.target.value="";}}/></label><label>Expected package SHA-256 <span>optional</span><input aria-label="Expected package hash" placeholder="sha256:…" value={expected} onChange={e=>{clear();setExpected(e.target.value);}}/></label><div className="vf-note">Without an expected digest, the report distinguishes a computed identity from a match to trusted bytes.</div></>}
+ {mode==="browser"&&<><h2>Replay the exact neural state.</h2><p>Load the evidence captured by Sim Lab, upload a replay bundle, or generate a synthetic example.</p><label className="vf-upload"><b>Choose browser replay bundle</b><span>{evidence?"Evidence loaded · tick "+evidence.tick:"Model + input + pre-state + output commitments"}</span><input type="file" accept=".json" aria-label="Upload replay evidence" onChange={e=>{void upload(e.target.files?.[0],"browser");e.target.value="";}}/></label><button className="vf-secondary" disabled={busy} onClick={()=>void localExample()}>Generate local example</button>{evidence&&<button className="vf-secondary" onClick={()=>download("neural-event.replay.json",evidence)}>Download evidence</button>}<div className="vf-note">Replay starts from captured voltages and spikes. It compares the complete output and post-state, with no warm-up approximation.</div></>}
+ {mode==="signed"&&<><h2>Inspect a signed module receipt.</h2><p>The local Rust verifier reads the matching input, pre-state, action and verifying key from an evidence directory.</p><button className="vf-secondary" disabled={busy} onClick={()=>void signedExample()}>Load bundled signed sample</button><label className="vf-upload compact"><b>Upload receipt JSON</b><input type="file" accept=".json" aria-label="Upload signed receipt" onChange={e=>{void upload(e.target.files?.[0],"signed");e.target.value="";}}/></label><label>Receipt JSON<textarea aria-label="Receipt JSON" rows={7} value={receipt} onChange={e=>{clear();setReceipt(e.target.value);}}/></label><label>Evidence directory<input value={bundle} onChange={e=>{clear();setBundle(e.target.value);}}/></label><label>Model path<input value={block} onChange={e=>{clear();setBlock(e.target.value);}}/></label><p className="vf-small">Paths are relative to the VM project. Start <code>npm run dev:validator</code> for Rust replay. A bundled verifying key does not authenticate device ownership.</p></>}
+ {notice&&<p className="vf-notice">{notice}</p>}
+ <button className="vf-primary" disabled={!canRun||busy} onClick={()=>void run()}>{busy?"Checking evidence…":mode==="artifact"?"Check artifact":"Run deterministic replay"}</button>
+ {error&&<div className="vf-error" role="alert"><strong>Verification not completed</strong><p>{error}</p><span>No successful result is recorded for this attempt.</span></div>}
+ <footer><b>Outside the control loop</b><p>These checks run after the event. No receipt or private input is sent to an external validator or blockchain.</p></footer>
+ </section>
+ <section className="vf-results" aria-live="polite"><header><div><span className="vf-kicker">VERIFICATION REPORT</span><h2>{report?report.outcome==="MATCH"?"Checked claims match.":report.outcome==="MISMATCH"?"Evidence does not match.":"Evidence is incomplete.":"Claims, one layer at a time."}</h2></div>{report&&<button className="vf-secondary" onClick={()=>download("verification-report.json",report)}>Export report</button>}</header>{report?<><p className="vf-scope">{report.scope}</p><div className="vf-subject"><b>{report.mode}</b><span>{report.subject}</span><small>Verifier · {report.verifierId}</small></div></>:<p className="vf-scope">Load evidence and run a check. Missing evidence stays unverified; field presence is never treated as proof.</p>}
+ <div className="vf-layers">{layers.map((layer,i)=>{const checks=report?.claims.filter(c=>c.layer===layer)??[];return <section key={layer}><div className="vf-layer-title"><span>{String(i+1).padStart(2,"0")}</span><h3>{layer}</h3>{!report&&<small>Not checked</small>}</div>{checks.length?checks.map(c=><div className="vf-claim" key={c.id}><div><strong>{c.label}</strong><p>{c.detail}</p></div><span className={"vf-badge "+c.status}>{c.status==="match"?"MATCH":c.status==="fail"?"MISMATCH":c.status==="computed"?"COMPUTED":c.status==="unsupported"?"UNAVAILABLE":"NOT CHECKED"}</span></div>):<p className="vf-placeholder">{report?"No claim established for this layer.":"Awaiting evidence."}</p>}</section>;})}</div>
+ {report&&<details className="vf-identities"><summary>Full identities and response</summary>{Object.entries(report.identities).map(([k,v])=><label key={k}>{k}<code>{v}</code></label>)}<pre>{JSON.stringify(rawResult??report,null,2)}</pre></details>}
+ </section></div><div className="vf-boundary"><strong>What a replay match means</strong><p>The identified software reproduces the disclosed result from the supplied input and state. Sensor authenticity, biological validity, physical actuation and controller safety require separate evidence.</p></div>
+ </div></Shell>;
 }
