@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Brand } from "@/components/Shell";
 import { NAV } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -16,10 +16,18 @@ const SECTIONS = [
 
 export function LandingNav() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
-      <header className="float-nav">
+      <header className="float-nav" data-scrolled={scrolled ? "true" : "false"}>
         <div className="float-nav-inner">
           <Brand sub={null} />
 

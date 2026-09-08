@@ -1,4 +1,8 @@
 import type {DatasetMeta} from "./datasets";
+import type {BrainDef,RegionDef} from "./brainAtlas";
+import type {CircuitDef} from "./circuitAtlas";
+import type {MotifDef} from "./motifAtlas";
+import type {Composition} from "./composition";
 export const KINDS = ["NeuroBlock", "NeuroStack", "Dataset", "Brain", "Region", "Circuit", "Motif"] as const;
 export type ArtifactKind = typeof KINDS[number];
 export const KIND_LABELS: Record<ArtifactKind,string> = {NeuroBlock:"Blocks",NeuroStack:"Stacks",Dataset:"Datasets",Brain:"Brains",Region:"Regions",Circuit:"Circuits",Motif:"Motifs"};
@@ -17,13 +21,23 @@ export type LibraryItem = {
  simulator:string|null;parent:{id:string;version:string;digest:string}|null;
  /** Present only on Dataset cards: the public source this entry points at. */
  dataset?:DatasetMeta;
+ /** Present only on Brain cards. */
+ brain?:BrainDef;
+ /** Present only on Region cards, with the brains that contain it. */
+ region?:{def:RegionDef;brains:string[]};
+ /** Present only on Circuit cards. */
+ circuit?:CircuitDef;
+ /** Present only on Motif cards — the complete graph. */
+ motif?:MotifDef;
+ /** Present on Blocks and Stacks: what this is made of, and what is not claimed. */
+ composition?:Composition;
 };
 export function repoHref(item:Pick<LibraryItem,"owner"|"slug">,version?:string){return "/explore/"+encodeURIComponent(item.owner)+"/"+encodeURIComponent(item.slug)+(version?"?version="+encodeURIComponent(version):"");}
 export function formatBytes(n:number){return n<1024?n+" B":n<1048576?(n/1024).toFixed(1)+" kB":n<1073741824?(n/1048576).toFixed(1)+" MB":(n/1073741824).toFixed(1)+" GB";}
 export function releaseDate(value:string|null){return value?new Date(value).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"Bundled release";}
 export function versionCompare(a:string,b:string){const aa=a.split(".").map(Number),bb=b.split(".").map(Number);for(let i=0;i<3;i++){if(aa[i]!==bb[i])return aa[i]-bb[i];}return 0;}
-export type LibraryFilters = {kind:ArtifactKind;q:string;task:string;origin:string;source:string;sort:string;savedOnly:boolean;saved:string[];coverage?:string;organism?:string};
+export type LibraryFilters = {kind:ArtifactKind;q:string;task:string;origin:string;source:string;sort:string;savedOnly:boolean;saved:string[];coverage?:string;organism?:string;role?:string;timescale?:string};
 export function filterLibrary(items:LibraryItem[],f:LibraryFilters){
  const query=f.q.trim().toLowerCase();
- return items.filter(i=>i.kind===f.kind&&(!f.task||i.task===f.task)&&(!f.origin||i.origin===f.origin)&&(!f.source||i.sourceType===f.source)&&(!f.coverage||i.dataset?.coverage===f.coverage)&&(!f.organism||i.dataset?.common===f.organism)&&(!f.savedOnly||f.saved.includes(i.id))&&(!query||[i.id,i.name,i.description,i.license,i.sourceType,i.dataset?.organism??"",i.dataset?.scope??"",...i.tags,...i.inputs,...i.outputs].join(" ").toLowerCase().includes(query))).sort((a,b)=> f.sort==="name"?a.name.localeCompare(b.name):f.sort==="smallest"?a.bytes-b.bytes:f.sort==="neurons"?(a.neurons??Infinity)-(b.neurons??Infinity):(b.publishedAt??"").localeCompare(a.publishedAt??"")||a.name.localeCompare(b.name));
+ return items.filter(i=>i.kind===f.kind&&(!f.task||i.task===f.task)&&(!f.origin||i.origin===f.origin)&&(!f.source||i.sourceType===f.source)&&(!f.coverage||i.dataset?.coverage===f.coverage)&&(!f.organism||i.dataset?.common===f.organism||i.brain?.common===f.organism)&&(!f.role||i.region?.def.role===f.role)&&(!f.timescale||i.circuit?.timescale===f.timescale)&&(!f.savedOnly||f.saved.includes(i.id))&&(!query||[i.id,i.name,i.description,i.license,i.sourceType,i.dataset?.organism??"",i.dataset?.scope??"",...i.tags,...i.inputs,...i.outputs].join(" ").toLowerCase().includes(query))).sort((a,b)=> f.sort==="name"?a.name.localeCompare(b.name):f.sort==="smallest"?a.bytes-b.bytes:f.sort==="neurons"?(a.neurons??Infinity)-(b.neurons??Infinity):(b.publishedAt??"").localeCompare(a.publishedAt??"")||a.name.localeCompare(b.name));
 }

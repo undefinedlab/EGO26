@@ -6,6 +6,10 @@ import {SynapseVmJs,validateBlock,type BlockJson} from "./synapseVm";
 import {canonical,importPackage} from "./stackCompiler";
 import {versionCompare,type LibraryItem,type Release} from "./library";
 import {DATASETS,FEATURED,COVERAGE_LABELS,type DatasetMeta} from "./datasets";
+import {BRAINS,REGION_SETS,ROLE_LABELS,regionsForBrain,type BrainDef,type RegionDef,type RegionSet} from "./brainAtlas";
+import {CIRCUITS,TIMESCALE_LABELS,type CircuitDef} from "./circuitAtlas";
+import {MOTIFS,motifsForCircuit,type MotifDef} from "./motifAtlas";
+import {compositionFor} from "./composition";
 
 type Repo={item:LibraryItem;files:Record<string,Buffer>};
 export class LibraryError extends Error{constructor(message:string,public status=400){super(message);}}
@@ -36,11 +40,15 @@ async function bundled():Promise<Repo[]>{
    version:meta.version,origin:"bundled",publishedAt:null,license:m.license??"Not specified",sourceType:source?"Connectome-derived":"Engineered",runtime:"Q16.16 · fixed-v1",modelDigest:sha(files["block.json"]),neurons:b.neuronCount,synapses:b.csrPres.length,
    inputs:m.inputs??meta.inputs,outputs:m.outputs??meta.outputs,actualInputs:b.inputChannels.map(c=>c.name),actualOutputs:["danger","avoid_x","avoid_y","trigger"],readme,
    lineage:source?[{kind:"Dataset",name:cp.dataset??"FlyWire FAFB v783",note:"Reference recorded in provenance",href:"/explore/datasets/flywire-fafb"},{kind:"Circuit",name:"Optic escape pathway",note:"LC4 / LPLC2 → GF / escape populations",href:"/explore/references/optic-escape"},{kind:"Derivation",name:"Fixed-point LIF + engineered adapters",note:"Independent source reproduction pending"}]:[{kind:"Model source",name:"Engineered neural chain",note:cp.note??"No connectome extraction claimed"}],
-   testCount:Object.keys(files).filter(f=>f.startsWith("test-vectors/")).length,testsRun:false,benchmark:bench?.block===meta.name+"@"+meta.version?{p50:bench.p50TickMs,p95:bench.p95TickMs,samples:bench.samples,note:"Stored local measurement; target hardware and methodology are incomplete. Not an independent benchmark."}:null,simulator:meta.id,parent:null},files));
+   testCount:Object.keys(files).filter(f=>f.startsWith("test-vectors/")).length,testsRun:false,benchmark:bench?.block===meta.name+"@"+meta.version?{p50:bench.p50TickMs,p95:bench.p95TickMs,samples:bench.samples,note:"Stored local measurement; target hardware and methodology are incomplete. Not an independent benchmark."}:null,simulator:meta.id,parent:null,composition:compositionFor("synapsevm/"+meta.id)??undefined},files));
  }
  const stackRaw=await readFile(path.join(root,"blocks/biopilot/0.1.0/stack.json"));
- repos.push(finish({id:"synapsevm/biopilot",owner:"synapsevm",slug:"biopilot",name:"BioPilot",kind:"NeuroStack",description:"Visual navigation with an explicit collision-avoidance override.",task:"Navigation",tags:["composition","priority-arbiter","source"],version:"0.1.0",origin:"bundled",publishedAt:null,license:"Not specified",sourceType:"Composition",runtime:"Source graph",modelDigest:null,neurons:null,synapses:null,inputs:["EventVision","HeadingDelta"],outputs:["ControlVector"],actualInputs:[],actualOutputs:[],readme:"BioPilot combines LoomGuard, FlowSense, HeadingCell, and TargetTrack.\n\nThis bundled graph is a source template. It is not an executable Stack release. Use Workbench to inspect the complete starter graph and create a deterministic source package.",lineage:NEURO_BLOCKS.map(b=>({kind:"NeuroBlock",name:b.name+"@"+b.version,note:"Bundled dependency",href:"/explore/synapsevm/"+b.id})),testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null},{"stack.json":stackRaw}));
+ repos.push(finish({id:"synapsevm/biopilot",owner:"synapsevm",slug:"biopilot",name:"BioPilot",kind:"NeuroStack",description:"Visual navigation with an explicit collision-avoidance override.",task:"Navigation",tags:["composition","priority-arbiter","source"],version:"0.1.0",origin:"bundled",publishedAt:null,license:"Not specified",sourceType:"Composition",runtime:"Source graph",modelDigest:null,neurons:null,synapses:null,inputs:["EventVision","HeadingDelta"],outputs:["ControlVector"],actualInputs:[],actualOutputs:[],readme:"BioPilot combines LoomGuard, FlowSense, HeadingCell, and TargetTrack.\n\nThis bundled graph is a source template. It is not an executable Stack release. Use Workbench to inspect the complete starter graph and create a deterministic source package.",lineage:NEURO_BLOCKS.map(b=>({kind:"NeuroBlock",name:b.name+"@"+b.version,note:"Bundled dependency",href:"/explore/synapsevm/"+b.id})),testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null,composition:compositionFor("synapsevm/biopilot")??undefined},{"stack.json":stackRaw}));
  for(const d of DATASETS) repos.push(datasetRepo(d));
+ for(const b of BRAINS) repos.push(brainRepo(b));
+ for(const r of regionCards()) repos.push(r);
+ for(const c of CIRCUITS) repos.push(circuitRepo(c));
+ for(const m of MOTIFS) repos.push(motifRepo(m));
  const loom=repos[0];
  for(const [slug,name,kind,description] of [["optic-escape","Optic escape pathway","Circuit","Looming-sensitive populations recorded in LoomGuard’s source lineage."]] as const){
   repos.push(finish({...loom.item,id:"references/"+slug,owner:"references",slug,name,kind,description,task:"Biological source",tags:["provenance","reference"],origin:"reference",version:"1.0.0",sourceType:"Source reference",runtime:"Not executable",modelDigest:null,neurons:null,synapses:null,inputs:[],outputs:[],actualInputs:[],actualOutputs:[],readme:description+"\n\nThis is a reference extracted from existing provenance, not a published dataset or standalone circuit package. The original scientific data is not hosted here. Inspect the provenance file and its consuming NeuroBlock.",lineage:[{kind:"Used by",name:"LoomGuard",note:"Source attribution",href:"/explore/synapsevm/loomguard"}],testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null},{"provenance.json":loom.files["provenance.json"]}));
@@ -71,6 +79,134 @@ function datasetRepo(d:DatasetMeta):Repo{
   inputs:[],outputs:[],actualInputs:[],actualOutputs:[],readme,
   lineage:[{kind:"Publisher",name:d.producer,note:d.version+(d.released?" · "+d.released:"")}],
   testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null,dataset:d,
+ },files);
+}
+
+
+/* ---- Atlas: brains and regions ship as knowledge, not as downloads ------- */
+
+function brainRepo(b:BrainDef):Repo{
+ const regions=regionsForBrain(b);
+ const readme=[b.summary,"",
+  "**Scope** "+b.scope,
+  "**Source dataset** "+b.datasetSlug,
+  "**Regions** "+regions.length+" described",
+  "",
+  "The anatomy below is published and ships with the library. Downloading the source dataset is only needed to compute exact per-region counts or to derive a circuit.",
+  ...(b.superclasses?["","Composition:",...b.superclasses.map(c=>"- "+c.name+" — "+c.count.toLocaleString()+" ("+c.note+")")]:[]),
+  ...(b.notes.length?["",...b.notes.map(n=>"- "+n)]:[]),
+ ].join("\n");
+ const files:Record<string,Buffer>={"brain.json":json({...b,regions:regions.map(r=>r.slug)}),"README.md":Buffer.from(readme+"\n")};
+ return finish({
+  id:"brains/"+b.slug,owner:"brains",slug:b.slug,name:b.name,kind:"Brain",
+  description:b.summary,task:b.common,
+  tags:["atlas",b.common.toLowerCase(),...b.regionSets],
+  version:"1.0.0",origin:"reference",publishedAt:null,license:"Anatomy · published nomenclature",
+  sourceType:"Atlas",runtime:"Not executable",modelDigest:null,
+  neurons:b.neurons,synapses:b.synapses,
+  inputs:[],outputs:[],actualInputs:[],actualOutputs:[],readme,
+  lineage:[{kind:"Dataset",name:b.datasetSlug,note:"Source connectome",href:"/explore/datasets/"+b.datasetSlug},
+   ...(b.superclasses?[{kind:"Composition",name:b.superclasses.length+" neuron classes",note:"Published breakdown"}]:[])],
+  testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null,brain:b,
+ },files);
+}
+
+/** A region is described once and lists the brains that contain it. */
+function regionCards():Repo[]{
+ const owners=new Map<string,{def:RegionDef;brains:BrainDef[]}>();
+ for(const b of BRAINS) for(const set of b.regionSets) for(const def of REGION_SETS[set as RegionSet]){
+  const row=owners.get(def.slug)??{def,brains:[]};row.brains.push(b);owners.set(def.slug,row);
+ }
+ return [...owners.values()].map(({def,brains})=>{
+  const names=brains.map(b=>b.name);
+  const readme=[def.summary,"",
+   "**Abbreviation** "+def.abbr,
+   "**Group** "+def.group,
+   "**Role** "+ROLE_LABELS[def.role],
+   "**Present in** "+names.join(", "),
+   ...(def.hosts.length?["","Circuits described here:",...def.hosts.map(h=>"- "+h)]:[]),
+   "",
+   "Neuron counts per region are not published for most connectomes. Import the source dataset to compute them for a specific brain.",
+  ].join("\n");
+  const files:Record<string,Buffer>={"region.json":json({...def,brains:brains.map(b=>b.slug)}),"README.md":Buffer.from(readme+"\n")};
+  return finish({
+   id:"regions/"+def.slug,owner:"regions",slug:def.slug,name:def.name,kind:"Region",
+   description:def.summary,task:ROLE_LABELS[def.role],
+   tags:["atlas",def.role,def.group.toLowerCase()],
+   version:"1.0.0",origin:"reference",publishedAt:null,license:"Anatomy · published nomenclature",
+   sourceType:def.group,runtime:"Not executable",modelDigest:null,
+   neurons:def.neurons,synapses:null,
+   inputs:[def.abbr],outputs:def.hosts.slice(0,2),actualInputs:[],actualOutputs:[],readme,
+   lineage:brains.map(b=>({kind:"Brain",name:b.name,note:"Contains this region",href:"/explore/brains/"+b.slug})),
+   testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null,
+   region:{def,brains:names},
+  },files);
+ });
+}
+
+
+function circuitRepo(c:CircuitDef):Repo{
+ const path=c.stages.map(s=>s.population).join(" -> ");
+ const readme=[c.summary,"",
+  "**Computes** "+c.computes,
+  "**Behaviour** "+c.behaviour,
+  "**Timescale** "+TIMESCALE_LABELS[c.timescale],
+  "**Pathway** "+path,
+  "",
+  "Stages:",
+  ...c.stages.map(s=>"- "+s.population+" ("+s.role+", "+s.region+") — "+s.note),
+  "",
+  "The pathway is published anatomy and ships here. The connectivity behind it comes from the source dataset: import a brain to extract the actual neurons and weights.",
+  ...(c.notes.length?["",...c.notes.map(x=>"- "+x)]:[]),
+  "","Cite as: "+c.citation,
+ ].join("\n");
+ const files:Record<string,Buffer>={"circuit.json":json(c),"README.md":Buffer.from(readme+"\n")};
+ const motifs=motifsForCircuit(c.slug);
+ return finish({
+  id:"circuits/"+c.slug,owner:"circuits",slug:c.slug,name:c.name,kind:"Circuit",
+  description:c.summary,task:TIMESCALE_LABELS[c.timescale],
+  tags:["pathway",c.common.toLowerCase(),c.timescale,...(c.block?["has-block"]:[])],
+  version:"1.0.0",origin:"reference",publishedAt:null,license:"Anatomy · published literature",
+  sourceType:"Pathway",runtime:"Not executable",modelDigest:null,neurons:null,synapses:null,
+  inputs:c.stages.filter(s=>s.role==="input").map(s=>s.population),
+  outputs:c.stages.filter(s=>s.role==="output").map(s=>s.population),
+  actualInputs:[],actualOutputs:[],readme,
+  lineage:[
+   ...c.brains.map(b=>({kind:"Brain",name:b,note:"Contains this circuit",href:"/explore/brains/"+b})),
+   ...motifs.map(m=>({kind:"Motif",name:m.name,note:"Used here",href:"/explore/motifs/"+m.slug})),
+   ...(c.block?[{kind:"NeuroBlock",name:c.block,note:"Derived module",href:"/explore/synapsevm/"+c.block}]:[]),
+  ],
+  testCount:0,testsRun:false,benchmark:null,simulator:c.block,parent:null,circuit:c,
+ },files);
+}
+
+/** Motifs are small enough to ship whole, so the graph itself is the artifact. */
+function motifRepo(m:MotifDef):Repo{
+ const readme=[m.summary,"",
+  "**Computes** "+m.computes,
+  "**Engineering equivalent** "+m.analogue,
+  "**Size** "+m.nodes.length+" neurons, "+m.edges.length+" connections",
+  "",
+  "Unlike a brain or a circuit, this artifact is complete: the graph below is the motif, not a pointer to it. Only the LIF parameters are missing before it can run.",
+  "",
+  "Appears in:",
+  ...m.appearsIn.map(a=>"- "+a.circuit+" — "+a.note),
+  ...(m.notes.length?["",...m.notes.map(x=>"- "+x)]:[]),
+ ].join("\n");
+ const files:Record<string,Buffer>={"motif.json":json({nodes:m.nodes,edges:m.edges}),"README.md":Buffer.from(readme+"\n")};
+ const inhibitory=m.edges.filter(x=>x.sign===-1).length;
+ return finish({
+  id:"motifs/"+m.slug,owner:"motifs",slug:m.slug,name:m.name,kind:"Motif",
+  description:m.computes,task:m.analogue.split(" / ")[0],
+  tags:["complete","graph",...(inhibitory?["inhibitory"]:["excitatory"])],
+  version:"1.0.0",origin:"reference",publishedAt:null,license:"Structure · public domain pattern",
+  sourceType:"Complete graph",runtime:"Structure only",modelDigest:null,
+  neurons:m.nodes.length,synapses:m.edges.length,
+  inputs:m.nodes.filter(x=>x.kind==="input").map(x=>x.label||x.id),
+  outputs:m.nodes.filter(x=>x.kind==="output").map(x=>x.label||x.id),
+  actualInputs:[],actualOutputs:[],readme,
+  lineage:m.appearsIn.map(a=>({kind:"Circuit",name:a.circuit,note:a.note,href:"/explore/circuits/"+a.circuit})),
+  testCount:0,testsRun:false,benchmark:null,simulator:null,parent:null,motif:m,
  },files);
 }
 
