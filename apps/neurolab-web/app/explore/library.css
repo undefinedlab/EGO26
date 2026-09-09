@@ -1872,3 +1872,308 @@
   white-space: nowrap;
 }
 .lib-source-link:hover { text-decoration: underline; }
+
+/* --- Brain import ---------------------------------------------------------
+   Derivation happens in the browser, so the UI has to carry the same
+   evidence the runtime does: what went in, what came out, and the digest. */
+
+.brain-import { display: flex; flex-direction: column; gap: var(--sp-6); }
+
+.brain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--sp-4);
+}
+
+.brain-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.brain-panel h2 {
+  font-size: var(--fs-h4);
+  letter-spacing: -0.02em;
+}
+.brain-help { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); }
+.brain-help code {
+  font-family: var(--font-mono);
+  font-size: 0.95em;
+  padding: 1px 4px;
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
+}
+
+.brain-select {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+}
+
+.brain-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+.brain-source a { color: var(--accent-text); font-weight: 600; }
+
+.brain-warn {
+  margin: 0;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--warn);
+  background: var(--warn-weak);
+  color: var(--warn);
+  font-size: var(--fs-label);
+  line-height: 1.5;
+}
+
+.brain-drop {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: var(--sp-7) var(--sp-4);
+  border: 1.5px dashed var(--line-heavy);
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+.brain-drop:hover, .brain-drop.dragging {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent-text);
+}
+.brain-drop strong { font-size: var(--fs-sm); color: var(--text); }
+.brain-drop span { font-size: var(--fs-label); }
+
+.brain-options { display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-xs); }
+.brain-options > label { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); color: var(--text-muted); }
+.brain-options input[type="number"] {
+  width: 5rem;
+  min-height: 2rem;
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-family: var(--font-mono);
+}
+.brain-check { justify-content: flex-start !important; }
+.brain-check input { accent-color: var(--accent); }
+
+.brain-progress { display: flex; flex-direction: column; gap: var(--sp-2); }
+.brain-bar { height: 6px; border-radius: var(--r-full); background: var(--surface-3); overflow: hidden; }
+.brain-bar span { display: block; height: 100%; background: var(--accent); transition: width 200ms ease; }
+.brain-progress-meta { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--fs-label); color: var(--text-muted); }
+
+.brain-error {
+  margin: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--err);
+  border-radius: var(--r-md);
+  background: var(--err-weak);
+  color: var(--err);
+  font-size: var(--fs-sm);
+}
+.brain-notice {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--ok);
+  border-radius: var(--r-md);
+  background: var(--ok-weak);
+  color: var(--ok);
+  font-size: var(--fs-sm);
+}
+
+.brain-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.brain-result-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-4); flex-wrap: wrap; }
+.brain-result-head h2 { font-size: var(--fs-h4); letter-spacing: -0.02em; }
+.brain-digest { font-size: var(--fs-label); color: var(--text-subtle); overflow-wrap: anywhere; }
+
+.brain-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(50%, 9rem), 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.brain-stat { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-4); background: var(--surface); }
+.brain-stat span { font-size: var(--fs-label); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); }
+.brain-stat strong { font-family: var(--font-mono); font-size: 1.15rem; letter-spacing: -0.02em; }
+
+.brain-coverage { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--sp-4); }
+.brain-coverage > div { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--sp-3); align-items: center; font-size: var(--fs-label); color: var(--text-muted); }
+.brain-meter { grid-column: 1; height: 6px; border-radius: var(--r-full); background: var(--surface-3); overflow: hidden; }
+.brain-meter i { display: block; height: 100%; background: var(--ok); }
+.brain-coverage b { grid-column: 2; grid-row: 2; font-family: var(--font-mono); color: var(--text); }
+.brain-coverage span { grid-column: 1 / -1; }
+
+.brain-regions h3 { font-size: var(--fs-sm); margin-bottom: var(--sp-3); }
+.brain-region-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.brain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+.brain-chip b { color: var(--text); }
+
+.brain-notes { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding-left: var(--sp-5); }
+.brain-notes li { font-size: var(--fs-label); color: var(--text-muted); list-style: disc; }
+
+.brain-saved h2 { font-size: var(--fs-h4); display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.brain-saved h2 span { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--text-subtle); }
+.brain-saved ul { display: flex; flex-direction: column; gap: var(--sp-2); }
+.brain-saved li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.brain-saved li > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brain-saved li span { font-size: var(--fs-label); color: var(--text-muted); }
+.brain-saved-actions { display: flex; gap: var(--sp-2); }
+
+/* --- Motif diagrams -------------------------------------------------------
+   A motif is small enough to draw exactly, so the card shows the graph
+   rather than describing it. Arrow = excitatory, bar = inhibitory,
+   resistor = gap junction, following the usual convention. */
+
+.lib-motif-figure {
+  flex: none;
+  width: 148px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.mx-diagram { width: 100%; height: auto; display: block; overflow: visible; }
+
+.mx-edge path { fill: none; stroke: var(--text-subtle); stroke-width: 1.1; }
+.mx-inh-edge path { stroke: var(--text-muted); }
+.mx-bar { stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; }
+.mx-arrowhead { fill: var(--text-subtle); stroke: none; }
+.mx-gap path { stroke: var(--accent); stroke-dasharray: 2.5 2; }
+.mx-gap-mark { stroke: var(--accent); stroke-width: 1.2; fill: none; stroke-linecap: round; }
+
+.mx-node circle { stroke-width: 1.2; }
+.mx-node text {
+  font-family: var(--font-mono);
+  font-size: 5.2px;
+  fill: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.mx-input circle { fill: var(--surface); stroke: var(--line-heavy); stroke-dasharray: 2 1.6; }
+.mx-exc circle { fill: var(--surface); stroke: var(--text); }
+.mx-inh circle { fill: var(--text-muted); stroke: var(--text-muted); }
+.mx-inh text { fill: var(--surface); }
+.mx-out circle { fill: var(--accent-weak); stroke: var(--accent); }
+.mx-out text { fill: var(--accent-text); }
+
+/* Circuit pathway line */
+.lib-pathway {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* --- Composition chain ----------------------------------------------------
+   What a Block or Stack is made of. The relation on each step is the point:
+   "derived from" and "models" are different claims, so they do not look
+   the same. Solid = backed by data here; dashed = attribution only. */
+
+.lib-made-of {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+}
+.lib-made-of-label {
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  flex: none;
+}
+
+.lib-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.lib-chain li { display: flex; align-items: center; gap: var(--sp-2); }
+.lib-chain li + li::before {
+  content: "→";
+  color: var(--line-heavy);
+  font-size: var(--fs-label);
+}
+.lib-chain li > a,
+.lib-chain li > span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.lib-chain li > a:hover { border-color: var(--text); background: var(--surface); }
+.lib-chain li.is-attributed > a { border-style: dashed; }
+.lib-chain li.is-verified > a { border-color: var(--ok); background: var(--ok-weak); }
+.lib-chain li.is-self > span { border-color: var(--accent); background: var(--accent-weak); }
+
+.lib-chain-rel {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+.lib-chain li.is-verified .lib-chain-rel { color: var(--ok); }
+.lib-chain li.is-self .lib-chain-rel { color: var(--accent-text); }
+.lib-chain-name { font-size: var(--fs-label); color: var(--text); white-space: nowrap; }
+.lib-chain li.is-self .lib-chain-name { color: var(--accent-text); font-weight: 600; }
+
+.lib-chain-score {
+  font-family: var(--font-mono);
+  font-size: var(--fs-label);
+  color: var(--text-subtle);
+  flex: none;
+}
