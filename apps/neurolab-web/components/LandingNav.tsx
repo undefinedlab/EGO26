@@ -7,37 +7,23 @@ import { NAV } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconClose, IconMenu } from "@/components/icons";
 
-const SECTIONS = [
-  { href: "#problem", label: "Problem" },
-  { href: "#how", label: "How it works" },
-  { href: "#features", label: "Features" },
-  { href: "#verify", label: "Verify" },
-] as const;
-
 export function LandingNav() {
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <>
-      <header className="float-nav" data-scrolled={scrolled ? "true" : "false"}>
-        <div className="float-nav-inner">
+      <header className="float-nav float-nav--plain" data-scrolled="false">
+        <div className="float-nav-inner float-nav-inner--simple">
           <Brand sub={null} />
-
-          <nav className="float-nav-pill" aria-label="Sections">
-            {SECTIONS.map((s) => (
-              <a key={s.href} href={s.href}>
-                {s.label}
-              </a>
-            ))}
-          </nav>
 
           <div className="float-nav-actions">
             <ThemeToggle />
@@ -66,7 +52,7 @@ export function LandingNav() {
           if (e.target === e.currentTarget) setOpen(false);
         }}
       >
-        <nav className="mobile-sheet-inner" aria-label="Sections and surfaces">
+        <nav className="mobile-sheet-inner" aria-label="Surfaces">
           <div className="mobile-sheet-top">
             <strong>Menu</strong>
             <button
@@ -78,12 +64,6 @@ export function LandingNav() {
               <IconClose />
             </button>
           </div>
-          {SECTIONS.map((s) => (
-            <a key={s.href} href={s.href} onClick={() => setOpen(false)}>
-              {s.label}
-            </a>
-          ))}
-          <div className="mobile-sheet-divider" />
           {NAV.map((item) => (
             <Link key={item.href} href={item.href} onClick={() => setOpen(false)}>
               {item.label}
