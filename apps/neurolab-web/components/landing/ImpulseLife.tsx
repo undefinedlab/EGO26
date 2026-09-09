@@ -109,7 +109,11 @@ function stepLife(curr: Uint8Array, next: Uint8Array, cols: number, rows: number
   }
 }
 
-export default function ImpulseLife() {
+type ImpulseLifeProps = {
+  className?: string;
+};
+
+export default function ImpulseLife({ className = "impulse-canvas" }: ImpulseLifeProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -269,7 +273,7 @@ export default function ImpulseLife() {
   }, []);
 
   return (
-    <div className="impulse-canvas" ref={wrap} aria-hidden>
+    <div className={className} ref={wrap} aria-hidden>
       <canvas ref={canvasRef} />
     </div>
   );

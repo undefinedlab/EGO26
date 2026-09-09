@@ -303,7 +303,7 @@ export function ComposeStudio() {
     (id: string) => {
       const meta = PALETTE.find((p) => p.id === id);
       if (!meta) return;
-      setAddMenuOpen(false);
+      setMenuOpen(null);
       setNodes((prev) => {
         const existing = prev.find((n) => n.id === id);
         if (existing) {

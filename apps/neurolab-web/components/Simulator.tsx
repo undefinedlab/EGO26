@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, OrbitControls } from "@react-three/drei";
 import {
   useCallback,
   useEffect,
@@ -21,6 +21,9 @@ import {
   type CaseId,
 } from "@/lib/blocks";
 import { useLabStore, type FrameSnapshot, type ReceiptEvent } from "@/lib/store";
+import Link from "next/link";
+import { chainFor, compositionFor, RELATION_LABELS } from "@/lib/composition";
+import { captureEvidence, verifyBrowserEvidence } from "@/lib/verification";
 import { fromQ16, loadBlock, q16, SynapseVmJs, type StepView } from "@/lib/synapseVm";
 
 type SceneRefs = {
@@ -68,14 +71,45 @@ function IconSensor({ on }: { on: boolean }) {
   );
 }
 
-function Lights() {
+function Lights({ ground = true }: { ground?: boolean }) {
   return (
     <>
-      <color attach="background" args={["#e8e9ec"]} />
-      <fog attach="fog" args={["#e8e9ec", 14, 42]} />
-      <ambientLight intensity={0.62} />
-      <directionalLight position={[8, 14, 6]} intensity={1.15} castShadow />
-      <hemisphereLight args={["#f4f5f7", "#c8cacf", 0.35]} />
+      <color attach="background" args={["#eceef1"]} />
+      <fog attach="fog" args={["#eceef1", 20, 52]} />
+
+      <hemisphereLight args={["#ffffff", "#b4b8c0", 0.5]} />
+      <directionalLight
+        position={[7, 13, 6]}
+        intensity={2.2}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.02}
+      >
+        <orthographicCamera attach="shadow-camera" args={[-16, 16, 16, -16, 0.5, 44]} />
+      </directionalLight>
+
+      {/* Built from lightformers rather than a preset HDRI so the scene needs
+          no network fetch and renders identically offline. */}
+      <Environment resolution={256}>
+        <Lightformer form="rect" intensity={4} position={[0, 7, 5]} scale={[12, 7, 1]} target={[0, 0, 0]} />
+        <Lightformer form="rect" intensity={1.6} position={[-7, 4, -5]} scale={[9, 5, 1]} target={[0, 0, 0]} />
+        <Lightformer form="ring" intensity={1.4} position={[7, 5, -3]} scale={5} target={[0, 0, 0]} />
+        <Lightformer form="rect" intensity={0.8} position={[0, -4, 0]} rotation-x={Math.PI / 2} scale={[14, 14, 1]} />
+      </Environment>
+
+      {ground && (
+        <ContactShadows
+          position={[0, 0.012, 0]}
+          opacity={0.42}
+          scale={44}
+          blur={2.4}
+          far={10}
+          resolution={1024}
+          color="#23252a"
+        />
+      )}
     </>
   );
 }
@@ -996,7 +1030,7 @@ function WhyOverlay({
     <div className="why-overlay">
       <div className="why-overlay-head">
         <div>
-          <div className="why-kicker">INSPECT WHY · CAUSAL REPLAY</div>
+          <div className="why-kicker">INSPECT WHY · MODULE REPLAY</div>
           <div className="why-title">{r.actionType}</div>
           <div className="mono muted" style={{ fontSize: 12, marginTop: 4 }}>
             one tick before → on trigger · replay{" "}
@@ -1010,6 +1044,8 @@ function WhyOverlay({
         </button>
       </div>
 
+      <p style={{ padding: "0 24px", fontSize: 12 }}>Exact neural state replay · unsigned local evidence. Scene behavior and physical actuation are not verified. {detail.replayError}</p>
+      <a href="/verify?evidence=simulator" className="btn btn-ghost" style={{ margin: "0 24px 16px" }}>Inspect verification evidence →</a>
       <div className="why-replay-window">
         <div className="why-replay-toolbar">
           <button
@@ -1131,7 +1167,8 @@ export function Simulator() {
   const [triggerHold, setTriggerHold] = useState(false);
   const [holdAction, setHoldAction] = useState<string | null>(null);
 
-  const { running, blockId, caseId, blockEnabled, set, pushReceipt, whyOpen, whyDetail } = useLabStore();
+  const { running, blockId, caseId, blockEnabled, speedScale, noise, set, pushReceipt, whyOpen, whyDetail } =
+    useLabStore();
   const block = getBlock(blockId);
   const simCase = getCase(caseId);
   const blockCases = casesForBlock(blockId);
@@ -1173,40 +1210,19 @@ export function Simulator() {
     const receipts = useLabStore.getState().receipts;
     if (!receipts.length) return;
     const receipt = receipts[receipts.length - 1];
-    set({ whyOpen: true, running: false });
+    set({ whyOpen: true, running: false, whyDetail: null });
+    try { sessionStorage.removeItem("synapsevm.verify.evidence"); } catch { /* storage unavailable */ }
     whyPulseRef.current = 1;
 
     try {
-      const vm = await loadBlock(receipt.blockId);
-      vm.reset();
-      // ramp into the captured sensor state, then replay the exact tick input
-      for (let i = 0; i < 8; i++) {
-        const scale = (i + 1) / 8;
-        const primed = receipt.input.map((v) => (v * scale) | 0);
-        vm.step(primed, i);
-      }
-      const out = vm.step(receipt.input, receipt.tick);
-      const matched =
-        out.trigger ||
-        out.triggerNeuronIds.some((id) => receipt.triggerNeuronIds.includes(id)) ||
-        (receipt.firedCount > 0 && out.firedCount > 0);
-      set({
-        whyDetail: {
-          receipt,
-          replayMatch: matched ? "MATCH" : "MISMATCH",
-          replayFired: out.traceNeuronIds,
-          replayTrigger: out.trigger,
-        },
-      });
-    } catch {
-      set({
-        whyDetail: {
-          receipt,
-          replayMatch: "MATCH",
-          replayFired: receipt.traceNeuronIds,
-          replayTrigger: true,
-        },
-      });
+      if (!receipt.modelBytes || !receipt.stateBeforeBytes || !receipt.stateAfterBytes) throw new Error("Exact replay state was not captured. Generate a new event.");
+      const evidence = await captureEvidence(receipt.modelBytes, receipt.tick, receipt.input, receipt.stateBeforeBytes, receipt.output, receipt.stateAfterBytes);
+      const report = await verifyBrowserEvidence(evidence);
+      if (useLabStore.getState().receipts.at(-1) !== receipt) return;
+      try { sessionStorage.setItem("synapsevm.verify.evidence", JSON.stringify(evidence)); } catch { /* replay result remains valid without storage */ }
+      set({ whyDetail: { receipt, replayMatch: report.outcome === "MATCH" ? "MATCH" : "MISMATCH", replayFired: receipt.output.traceNeuronIds, replayTrigger: receipt.output.trigger } });
+    } catch (error) {
+      set({ whyDetail: { receipt, replayMatch: "ERROR", replayError: String(error), replayFired: [], replayTrigger: false } });
     }
   }, [set]);
 
@@ -1282,8 +1298,8 @@ export function Simulator() {
         const id = st.caseId;
         let dist = distanceRef.current;
         const c = getCase(id);
-        // fixed brisk cruise — smaller steps at higher rate for smoother feel
-        const cruise =
+        // Baseline approach step per scene, authored for a readable pace.
+        const baseCruise =
           id === "car-brake" || id === "saw-estop"
             ? 0.26
             : c.scene === "air"
@@ -1293,6 +1309,7 @@ export function Simulator() {
                 : c.scene === "corridor"
                   ? 0.05
                   : Math.max(st.speed, 0.07);
+        const cruise = baseCruise * st.speedScale;
         dist = Math.max(0.08, dist - cruise);
 
         const extras =
@@ -1307,6 +1324,7 @@ export function Simulator() {
           : new Array(Math.max(1, channelNamesRef.current.length || 4)).fill(0);
 
         const t = st.tick + 1;
+        const exactStateBefore = Array.from(vm.snapshot());
         let result: StepView;
         try {
           result = st.blockEnabled
@@ -1357,6 +1375,10 @@ export function Simulator() {
             caseId: id,
             blockId: st.blockId,
             before: preFrameRef.current,
+            modelBytes: JSON.stringify(vm.block),
+            stateBeforeBytes: exactStateBefore,
+            stateAfterBytes: Array.from(vm.snapshot()),
+            output: structuredClone(result),
           };
           pushReceipt(receipt);
           prevTrigger.current = true;
@@ -1557,6 +1579,67 @@ export function Simulator() {
           ))}
         </div>
         </section>
+
+        <section className="simlab-settings" aria-labelledby="run-settings-label">
+          <div className="simlab-section-label">
+            <span className="why-kicker" id="run-settings-label">Run settings</span>
+            <button
+              type="button"
+              className="simlab-reset-settings"
+              onClick={() => set({ speedScale: 1, noise: 0 })}
+              disabled={speedScale === 1 && noise === 0}
+            >
+              Reset
+            </button>
+          </div>
+
+          <label className="simlab-setting">
+            <span>
+              Approach speed
+              <b>{speedScale.toFixed(2)}×</b>
+            </span>
+            <input
+              type="range"
+              min={0.25}
+              max={2}
+              step={0.05}
+              value={speedScale}
+              onChange={(e) => set({ speedScale: Number(e.target.value) })}
+            />
+            <small>How fast the hazard closes. Scales the scene&rsquo;s authored pace.</small>
+          </label>
+
+          <label className="simlab-setting">
+            <span>
+              Sensor noise
+              <b>±{noise.toFixed(3)}</b>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={0.25}
+              step={0.005}
+              value={noise}
+              onChange={(e) => set({ noise: Number(e.target.value) })}
+            />
+            <small>Uniform jitter added to every input channel before encoding.</small>
+          </label>
+
+          <dl className="simlab-fixed">
+            <div>
+              <dt>Runtime</dt>
+              <dd className="mono">Q16.16 fixed point</dd>
+            </div>
+            <div>
+              <dt>Input channels</dt>
+              <dd className="mono">{block.inputs.length}</dd>
+            </div>
+            <div>
+              <dt>On trigger</dt>
+              <dd className="mono">{simCase.actionOnTrigger}</dd>
+            </div>
+          </dl>
+        </section>
       </div>
 
       <div className={`simlab-canvas-wrap ${triggerHold ? "triggered" : ""}`}>
@@ -1591,10 +1674,34 @@ export function Simulator() {
             </button>
           </div>
 
+          {(() => {
+            const comp = compositionFor("synapsevm/" + blockId);
+            if (!comp) return null;
+            return (
+              <div className="simlab-provenance">
+                <span className="simlab-provenance-label">Running</span>
+                <ol className="simlab-chain">
+                  {chainFor(comp).map((l) => (
+                    <li key={l.id} className={l.verified ? "is-verified" : "is-attributed"}>
+                      <Link href={"/explore/" + l.id} title={RELATION_LABELS[l.relation] + " · " + l.detail}>
+                        {l.name}
+                      </Link>
+                    </li>
+                  ))}
+                  <li className="is-self">
+                    <Link href={"/explore/synapsevm/" + blockId}>{block.name}</Link>
+                  </li>
+                </ol>
+              </div>
+            );
+          })()}
+
           <div className="simlab-viewport">
             <Canvas
               key={`${blockId}-${caseId}`}
-              shadows
+              shadows="soft"
+              dpr={[1, 2]}
+              gl={{ antialias: true, toneMappingExposure: 1.05 }}
               camera={{
                 position:
                   simCase.scene === "air"

@@ -628,20 +628,28 @@ export default function HomePage() {
         </Band>
 
         {/* ------------------------------------------------------- final CTA */}
-        <section className="closer">
-          <div className="closer-inner glass">
-            <h2>
-              Give your software a <em>nervous system.</em>
-            </h2>
-            <p>Build your first NeuroStack.</p>
-            <div className="closer-actions">
-              <Link href="/compose" className="btn btn-primary btn-lg">
-                Open Workbench
-                <IconArrowRight />
-              </Link>
-              <Link href="/explore" className="btn btn-glass btn-lg">
-                Explore NeuroBlocks
-              </Link>
+        <section className="closer" aria-labelledby="closer-title">
+          <div className="closer-stage">
+            <ImpulseLife className="closer-canvas" />
+            <div className="closer-copy">
+              <p className="kicker">Start building</p>
+              <h2 id="closer-title">
+                Give your software a <em>nervous system.</em>
+              </h2>
+              <p className="closer-lead">
+                Compose a NeuroStack locally. Simulate it live. Export it anywhere.
+                Verify exactly what it did.
+              </p>
+              <div className="closer-actions">
+                <Link href="/compose" className="btn btn-primary btn-lg">
+                  Open Workbench
+                  <IconArrowRight />
+                </Link>
+                <Link href="/explore" className="btn btn-glass btn-lg">
+                  Explore NeuroBlocks
+                </Link>
+              </div>
+              <p className="closer-meta mono">Discover · Compose · Simulate · Verify</p>
             </div>
           </div>
         </section>
@@ -649,14 +657,15 @@ export default function HomePage() {
         {/* ---------------------------------------------------------- footer */}
         <footer className="lp-footer">
           <div className="lp-wrap lp-footer-grid">
-            <div>
+            <div className="lp-footer-brand-block">
               <div className="lp-footer-brand">SynapseVM</div>
-              <p className="muted t-sm" style={{ marginTop: "var(--sp-3)", maxWidth: "32ch" }}>
+              <p>
                 Portable SNN modules for software, robots, and autonomous systems.
+                Local, deterministic, and replayable by design.
               </p>
             </div>
             <div className="lp-footer-col">
-              <div className="lp-footer-head">NeuroLab</div>
+              <div className="lp-footer-head">Product</div>
               {NAV.map((item) => (
                 <Link key={item.href} href={item.href}>
                   {item.label}
@@ -665,7 +674,21 @@ export default function HomePage() {
               <Link href="/profile">Profile</Link>
             </div>
             <div className="lp-footer-col">
-              <div className="lp-footer-head">Export targets</div>
+              <div className="lp-footer-head">Resources</div>
+              <Link href="/docs">Docs</Link>
+              <Link href="/community">Community</Link>
+              <a href="https://x.com/" target="_blank" rel="noopener noreferrer">
+                Twitter / X
+              </a>
+              <Link href="/explore">Library</Link>
+            </div>
+            <div className="lp-footer-col">
+              <div className="lp-footer-head">Legal</div>
+              <Link href="/terms">Terms</Link>
+              <Link href="/privacy">Privacy</Link>
+            </div>
+            <div className="lp-footer-col">
+              <div className="lp-footer-head">Export</div>
               <span>WASM</span>
               <span>Rust</span>
               <span>Python</span>
@@ -673,8 +696,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="lp-wrap lp-footer-bottom">
-            <span>© {new Date().getFullYear()} SynapseVM · NeuroLab</span>
-            <span className="mono">local · deterministic · replayable</span>
+            <span>© {new Date().getFullYear()} SynapseVM. All rights reserved.</span>
           </div>
         </footer>
       </main>
