@@ -13,4 +13,4 @@ Sim Lab's Inspect WHY now restores captured pre-state instead of approximating p
 
 Every report lists source, build, artifact, deployment, execution, replay, external and anchor claims. A computed hash is not an expected-hash match. A local replay match is not an independent implementation or device attestation. External confidential validation, hardware attestation and public anchoring remain unavailable/unverified.
 
-The Compose rewrite remains a separate staged change. This Verify pass supports the source-package format present in the live project; new Compose runtime formats need integration when that change is completed.
+Compose now supports synapsevm.compose-package.v1 artifacts and synapsevm.stack-replay.v1 replay bundles. Upload both or use Open in Verify from Compose. Full Stack replay checks neural events, arbitration, final commands and state under the exact package identity; these receipts remain unsigned.

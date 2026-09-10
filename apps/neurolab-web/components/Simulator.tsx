@@ -1164,11 +1164,21 @@ export function Simulator() {
   const [uiTick, setUiTick] = useState(0);
   const [uiDist, setUiDist] = useState(10);
   const [last, setLast] = useState<StepView | null>(null);
+  const [activity, setActivity] = useState<{ fired: number; danger: number }[]>([]);
   const [triggerHold, setTriggerHold] = useState(false);
   const [holdAction, setHoldAction] = useState<string | null>(null);
 
   const { running, blockId, caseId, blockEnabled, speedScale, noise, set, pushReceipt, whyOpen, whyDetail } =
     useLabStore();
+
+  // Spike activity is worth seeing while it happens, not only after a trigger.
+  useEffect(() => {
+    if (!last) {
+      setActivity([]);
+      return;
+    }
+    setActivity((a) => [...a.slice(-79), { fired: last.firedCount, danger: fromQ16(last.danger) }]);
+  }, [last]);
   const block = getBlock(blockId);
   const simCase = getCase(caseId);
   const blockCases = casesForBlock(blockId);
@@ -1765,6 +1775,34 @@ export function Simulator() {
             )}
 
             {whyOpen && whyDetail && <WhyOverlay detail={whyDetail} onClose={() => set({ whyOpen: false })} />}
+          </div>
+
+          <div className="simlab-activity" aria-label="Live neural activity">
+            <div className="simlab-activity-head">
+              <span className="why-kicker">Neural activity</span>
+              <span className="mono">
+                {last ? last.firedCount : 0} spikes · danger {last ? fromQ16(last.danger).toFixed(3) : "0.000"}
+              </span>
+            </div>
+
+            <div className="simlab-spikes" aria-hidden>
+              {activity.length === 0 && <span className="simlab-activity-empty">Press play to record activity.</span>}
+              {activity.map((a, i) => {
+                const h = Math.max(2, Math.min(100, (a.fired / Math.max(1, block.neuronCount * 0.06)) * 100));
+                return <i key={i} style={{ height: h + "%" }} className={a.danger > 0.5 ? "hot" : undefined} />;
+              })}
+            </div>
+
+            <div className="simlab-danger">
+              <span className="mono">danger</span>
+              <div className="simlab-danger-track">
+                <div
+                  className="simlab-danger-fill"
+                  style={{ width: Math.min(100, (last ? fromQ16(last.danger) : 0) * 100) + "%" }}
+                />
+              </div>
+              <span className="mono">{last ? fromQ16(last.danger).toFixed(2) : "0.00"}</span>
+            </div>
           </div>
         </div>
     </div>

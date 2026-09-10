@@ -1,3 +1,4 @@
+import {importStack, DEFINITIONS} from "./composeCompiler";
 import {readFile,readdir,mkdir,writeFile,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {createHash,randomUUID} from "node:crypto";
@@ -235,6 +236,7 @@ export async function preparePublication(body:PublishInput):Promise<Repo>{
  if(!body.license.trim()||body.license.length>100||!body.task.trim()||body.task.length>80)throw new LibraryError("Task and license are required");
  if(Buffer.byteLength(body.artifact)>4_000_000)throw new LibraryError("Artifact exceeds 4 MB");
  const files:Record<string,Buffer>={"README.md":Buffer.from(body.readme),"provenance.json":json({kind:"PublisherStatement",statement:body.provenance,independentlyVerified:false})};
+ let stackExecutable=false;
  let neurons:number|null=null,synapses:number|null=null,inputs:string[]=[],outputs:string[]=[],testCount=0,modelDigest:string|null=null;
  if(body.kind==="NeuroBlock"){
   const block=JSON.parse(body.artifact) as BlockJson&{schema:string};if(block.schema!=="synapsevm.blockbytes.v1"||block.neuronCount>10000)throw new LibraryError("Expected fixed-v1 block.json with at most 10,000 neurons");validateBlock(block);
@@ -249,13 +251,13 @@ export async function preparePublication(body:PublishInput):Promise<Repo>{
   files["block.json"]=Buffer.from(body.artifact);files["test-vectors.json"]=json(vectors);files["test-report.json"]=json({scope:"Local smoke execution; no expected-output assertions or independent replay",results:report});
   neurons=block.neuronCount;synapses=block.csrPres.length;inputs=block.inputChannels.map(c=>c.name);outputs=["danger","avoid_x","avoid_y","trigger"];testCount=vectors.length;modelDigest=sha(body.artifact);
  }else if(body.kind==="NeuroStack"){
-  const pkg=await importPackage(body.artifact);files["stack.synapse"]=Buffer.from(body.artifact);inputs=pkg.graph.nodes.filter(n=>n.type==="EventCamera"||n.type==="IMU").map(n=>n.type);outputs=["ControlVector"];modelDigest=pkg.manifest.stackId;
+  const raw=JSON.parse(body.artifact);const pkg=raw.format==="synapsevm.compose-package.v1"?await importStack(body.artifact):await importPackage(body.artifact);files["stack.synapse"]=Buffer.from(body.artifact);inputs=pkg.graph.nodes.filter(n=>DEFINITIONS[n.type]?.family==="sensor").flatMap(n=>Object.keys(DEFINITIONS[n.type].outputs).map(p=>n.id+"."+p));outputs=pkg.graph.nodes.filter(n=>DEFINITIONS[n.type]?.family==="actuator").map(n=>n.id);modelDigest=pkg.manifest.stackId;stackExecutable=pkg.manifest.executable;
  }else throw new LibraryError("Local publishing currently supports NeuroBlocks and NeuroStacks");
  let parent:LibraryItem["parent"]=null;
  if(body.parent){const [owner,name,...rest]=body.parent.id.split("/");if(rest.length)throw new LibraryError("Invalid fork parent");const base=await repository(owner,name,body.parent.version);if(base.item.digest!==body.parent.digest||base.item.kind!==body.kind)throw new LibraryError("Fork parent digest or artifact kind mismatch");parent={id:base.item.id,version:base.item.version,digest:base.item.digest};}
  files["interface.json"]=json({kind:"Interface",numericFormat:"Q16.16",inputs,outputs});
- files["manifest.json"]=json({kind:body.kind,name:body.name,namespace:body.owner,version:body.version,description:body.description.trim(),license:body.license,task:body.task,modelDigest,source:parent,executable:body.kind==="NeuroBlock",runtime:body.kind==="NeuroBlock"?"synapsevm-fixed-v1":"source-package",publisherIdentity:"self-declared-local",signature:null});
- return finish({id:body.owner+"/"+body.name,owner:body.owner,slug:body.name,name:body.name,kind:body.kind,description:body.description.trim(),task:body.task,tags:["local",body.kind==="NeuroBlock"?"Q16.16":"composition"],version:body.version,origin:"local",publishedAt:new Date().toISOString(),license:body.license,sourceType:parent?"Fork":"Publisher supplied",runtime:body.kind==="NeuroBlock"?"Q16.16 · fixed-v1":"Source graph",modelDigest,neurons,synapses,inputs,outputs,actualInputs:inputs,actualOutputs:outputs,readme:body.readme,lineage:[{kind:"Publisher statement",name:body.provenance,note:"Not independently verified"}],testCount,testsRun:body.kind==="NeuroBlock",benchmark:null,simulator:null,parent},files);
+ files["manifest.json"]=json({kind:body.kind,name:body.name,namespace:body.owner,version:body.version,description:body.description.trim(),license:body.license,task:body.task,modelDigest,source:parent,executable:body.kind==="NeuroBlock"||stackExecutable,runtime:body.kind==="NeuroBlock"?"synapsevm-fixed-v1":stackExecutable?"synapsevm-compose-js-v1":"source-package",publisherIdentity:"self-declared-local",signature:null});
+ return finish({id:body.owner+"/"+body.name,owner:body.owner,slug:body.name,name:body.name,kind:body.kind,description:body.description.trim(),task:body.task,tags:["local",body.kind==="NeuroBlock"?"Q16.16":"composition"],version:body.version,origin:"local",publishedAt:new Date().toISOString(),license:body.license,sourceType:parent?"Fork":"Publisher supplied",runtime:body.kind==="NeuroBlock"?"Q16.16 · fixed-v1":stackExecutable?"Compose JS · executable":"Source graph",modelDigest,neurons,synapses,inputs,outputs,actualInputs:inputs,actualOutputs:outputs,readme:body.readme,lineage:[{kind:"Publisher statement",name:body.provenance,note:"Not independently verified"}],testCount,testsRun:body.kind==="NeuroBlock",benchmark:null,simulator:body.kind==="NeuroStack"?"/compose?repository="+encodeURIComponent(body.owner+"/"+body.name)+"&version="+body.version:null,parent},files);
 }
 export async function publish(body:PublishInput,dir=libraryDataDir()){
  const repo=await preparePublication(body);await mkdir(dir,{recursive:true});

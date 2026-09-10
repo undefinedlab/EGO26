@@ -1,3 +1,5 @@
+import {importStack} from "./composeCompiler";
+import {replayStack,type ReplayBundle} from "./composeRuntime";
 import {canonical,digest,importPackage} from "./stackCompiler";
 import {SynapseVmJs,validateBlock,type StepView,type BlockJson} from "./synapseVm";
 export type Claim={id:string;layer:string;label:string;status:"match"|"fail"|"missing"|"unsupported"|"computed";detail:string};
@@ -47,7 +49,7 @@ export async function verifyArtifact(raw:string,expected=""):Promise<Verificatio
  if(expected&&!/^sha256:[a-f0-9]{64}$/.test(expected.trim()))throw Error("Expected hash must be sha256: followed by 64 lowercase hex characters.");
  claims.push(expected?match("package","Artifact","Expected package hash",hash===expected.trim(),"Exact uploaded bytes compared with the expected digest."): {id:"package",layer:"Artifact",label:"Package hash",status:"computed",detail:"Digest computed. Supply a digest from a trusted source to compare expected bytes."});
  let subject="";
- if(value?.format==="synapsevm.source-package.v1"){const pkg=await importPackage(raw);subject=pkg.manifest.name+"@"+pkg.manifest.version;identities.stackId=pkg.manifest.stackId;claims.push(match("stack","Artifact","Canonical Stack identity",true,"Recomputed graph, lockfile and source execution plan."),match("modules","Artifact","Locked module bytes",true,"Every included module digest and identity matched."),{id:"runtime",layer:"Build",label:"Executable target",status:"unsupported",detail:"This is a source package. No composed executable has been checked."});}
+ if(["synapsevm.source-package.v1","synapsevm.compose-package.v1"].includes(value?.format)){const pkg=value.format==="synapsevm.compose-package.v1"?await importStack(raw):await importPackage(raw);subject=pkg.manifest.name+"@"+pkg.manifest.version;identities.stackId=pkg.manifest.stackId;claims.push(match("stack","Artifact","Canonical Stack identity",true,"Recomputed graph, lockfile and source execution plan."),match("modules","Artifact","Locked module bytes",true,"Every included module digest and identity matched."),{id:"runtime",layer:"Build",label:"Executable target",status:pkg.manifest.executable?"match":"unsupported",detail:pkg.manifest.executable?"Deterministic JavaScript execution plan and all module locks reproduced.":"This is a source package. No composed executable has been checked."});}
  else {const model=boundedModel(raw);subject=model.name+"@"+model.version;claims.push(match("schema","Artifact","Model structure",true,"Topology, numeric parameters and channel mappings passed structural validation."));}
  claims.push({id:"signature",layer:"Deployment",label:"Publisher signature",status:"missing",detail:"No authenticated publisher signature checked."},...missingTrust());
  return {format:"synapsevm.verification-report.v1",verifierId:"synapsevm-artifact-verifier-v1",subject,mode:"Artifact integrity",outcome:claims.some(c=>c.status==="fail")?"MISMATCH":expected?"MATCH":"INCOMPLETE",claims,identities,scope:"Internal structure and declared identities are checked. An external expected hash establishes comparison to expected bytes; independent build reproduction is separate."};
@@ -58,4 +60,14 @@ export function signedReplayReport(result:Record<string,unknown>,receipt:Record<
  claims.push(...missingTrust());
  const incomplete=fields.some(([key])=>typeof result[key]!=="boolean"),failed=result.valid===false||claims.some(c=>c.status==="fail");
  return {format:"synapsevm.verification-report.v1",verifierId:"synapsevm-rust-neuroreceipt-v2",subject:String(receipt.receiptId??"Receipt"),mode:"Local Rust replay",outcome:failed?"MISMATCH":incomplete||result.valid!==true?"INCOMPLETE":"MATCH",claims,identities:{receiptId:String(receipt.receiptId??""),blockRoot:String(receipt.blockRoot??""),stackRoot:String(receipt.stackRoot??"")},scope:"Local Rust replay of a module receipt. Signature validity is relative to the bundled key. No composed Stack, physical action, external validation or public anchor is established."};
+}
+
+export async function verifyStackEvidence(raw:string,e:ReplayBundle):Promise<VerificationReport>{
+ const pkg=await importStack(raw),identities={stackId:pkg.manifest.stackId,packageHash:await digest(raw),receiptHash:e?.receipt?.hash??""};
+ const claims:Claim[]=[match("artifact","Artifact","Stack, plan and locked modules",true,"Canonical package rebuilt from included model bytes."),match("stack","Execution","Receipt Stack identity",e?.stackId===pkg.manifest.stackId,"Receipt must refer to this exact graph and control policy.")];
+ let outcome:VerificationReport["outcome"]="MATCH";
+ try { await replayStack(pkg,e);for(const [id,label] of [["input","Input commitment"],["before","Complete pre-state"],["events","Neural outputs and control decisions"],["actions","Final actuator commands"],["after","Post-state commitment"],["receipt","Receipt hash and sequence context"]])claims.push(match(id,"Replay",label,true,"Reproduced by a fresh local JavaScript Stack runtime.")); }
+ catch(error){outcome="MISMATCH";claims.push(match("replay","Replay","Full Stack replay",false,error instanceof Error?error.message:String(error)));}
+ claims.push({id:"signature",layer:"Deployment",label:"Receipt signature",status:"missing",detail:"Compose receipts are unsigned local execution evidence."},...missingTrust().filter(c=>c.id!=="control"));
+ return {format:"synapsevm.verification-report.v1",verifierId:"synapsevm-compose-verifier-v1",subject:pkg.graph.name+"@"+pkg.graph.version,mode:"Local Stack replay",outcome,claims,identities,scope:"Reproduces the recorded graph decision, including arbitration and final commands. It does not establish physical actuation, trusted sensors, independent implementation or authenticated device identity."};
 }
