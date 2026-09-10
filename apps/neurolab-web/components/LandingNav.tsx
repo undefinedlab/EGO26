@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Brand } from "@/components/Shell";
-import { NAV } from "@/lib/nav";
+import { NAV, SITE_LINKS } from "@/lib/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconClose, IconMenu } from "@/components/icons";
 
 export function LandingNav() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -19,14 +21,29 @@ export function LandingNav() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
   return (
     <>
       <header className="float-nav float-nav--plain" data-scrolled="false">
         <div className="float-nav-inner float-nav-inner--simple">
           <Brand sub={null} />
 
+          <nav className="float-nav-links" aria-label="Site">
+            {SITE_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="float-nav-link"
+                aria-current={isActive(link.href) ? "page" : undefined}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
           <div className="float-nav-actions">
-            <ThemeToggle />
+            <ThemeToggle className="theme-toggle--bare" />
             <Link href="/compose" className="btn btn-primary btn-sm btn-desktop">
               Open Workbench
             </Link>
@@ -64,6 +81,17 @@ export function LandingNav() {
               <IconClose />
             </button>
           </div>
+          {SITE_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              aria-current={isActive(link.href) ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="mobile-sheet-divider" />
           {NAV.map((item) => (
             <Link key={item.href} href={item.href} onClick={() => setOpen(false)}>
               {item.label}

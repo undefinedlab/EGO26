@@ -65,6 +65,13 @@ export const IconClose = (p: IconProps) => (
   </Svg>
 );
 
+export const IconUser = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="5.5" r="2.6" />
+    <path d="M2.8 13.4c.7-2.4 2.5-3.7 5.2-3.7s4.5 1.3 5.2 3.7" />
+  </Svg>
+);
+
 export const IconCheck = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 8.4 6.2 11.6 13 4.8" />
@@ -76,5 +83,46 @@ export const IconLayers = (p: IconProps) => (
     <path d="M8 1.8 14.2 5 8 8.2 1.8 5 8 1.8Z" />
     <path d="M1.8 8 8 11.2 14.2 8" />
     <path d="M1.8 11 8 14.2 14.2 11" />
+  </Svg>
+);
+
+export const IconFolder = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2.4 12.6V4.6A1.2 1.2 0 0 1 3.6 3.4h3.1l1.3 1.6h4.4A1.2 1.2 0 0 1 13.6 6.2v6.4a1.2 1.2 0 0 1-1.2 1.2H3.6A1.2 1.2 0 0 1 2.4 12.6Z" />
+  </Svg>
+);
+
+export const IconSave = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 2.8h8l2.2 2.2v8.2H3V2.8Z" />
+    <path d="M5.6 2.8v2.8h5V2.8" />
+  </Svg>
+);
+
+export const IconImport = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 2.4v7.4" />
+    <path d="M5.2 7.2 8 9.8l2.8-2.6" />
+    <path d="M3.2 12.4h9.6" />
+  </Svg>
+);
+
+export const IconPlay = (p: IconProps) => (
+  <Svg {...p} fill="currentColor" stroke="none">
+    <path d="M5.2 3.4v9.2L13 8 5.2 3.4Z" />
+  </Svg>
+);
+
+export const IconRefresh = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12.8 7.2A4.8 4.8 0 1 1 11.4 3.6" />
+    <path d="M12.8 3.2v4h-4" />
+  </Svg>
+);
+
+export const IconPanel = (p: IconProps) => (
+  <Svg {...p} strokeWidth={1.25}>
+    <rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2" />
+    <path d="M10.6 2.6v10.8" />
   </Svg>
 );

@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { IconClose, IconMenu } from "@/components/icons";
+import { IconClose, IconMenu, IconUser } from "@/components/icons";
 import { NAV } from "@/lib/nav";
-import { initials, readProfile } from "@/lib/profileLocal";
 
 export function Brand({ sub = "NeuroLab" }: { sub?: string | null }) {
   return (
@@ -25,6 +24,7 @@ export function Shell({
   children,
   wide,
   canvas,
+  bare,
 }: {
   /** @deprecated the active surface is derived from the route. */
   active?: string;
@@ -32,29 +32,21 @@ export function Shell({
   wide?: boolean;
   /** Full-bleed workspace (Compose canvas). */
   canvas?: boolean;
+  /** Hide the app header — used for nested screens with their own back control. */
+  bare?: boolean;
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [avatar, setAvatar] = useState("LB");
 
   // A route change should always dismiss the mobile sheet.
   useEffect(() => setMenuOpen(false), [pathname]);
-
-  useEffect(() => {
-    const sync = () => setAvatar(initials(readProfile().displayName));
-    sync();
-    window.addEventListener("focus", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("focus", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [pathname]);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <div className={canvas ? "shell shell--canvas" : "shell"}>
+      {!bare && (
+        <>
       <header className="shell-header">
         <div className="shell-header-inner">
           <Brand />
@@ -72,7 +64,7 @@ export function Shell({
           </nav>
 
           <div className="nav-actions">
-            <ThemeToggle />
+            <ThemeToggle className="theme-toggle--bare" />
             <Link
               href="/profile"
               className="shell-profile"
@@ -80,7 +72,7 @@ export function Shell({
               aria-label="Profile"
               aria-current={isActive("/profile") ? "page" : undefined}
             >
-              {avatar}
+              <IconUser />
             </Link>
             <button
               type="button"
@@ -133,6 +125,8 @@ export function Shell({
           </Link>
         </nav>
       </div>
+        </>
+      )}
 
       <main
         id="main"
