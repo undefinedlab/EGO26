@@ -1,4 +1,5 @@
 import type { MotifDef, MotifEdge, MotifNode } from "@/lib/motifAtlas";
+import { edgeKey, type MotifState } from "@/lib/motifSim";
 
 /**
  * A motif is small enough to draw exactly, so it is drawn rather than
@@ -42,7 +43,17 @@ function geometry(a: MotifNode, b: MotifNode, curve: number) {
   return { start, end, cx, cy, angle };
 }
 
-function Edge({ edge, nodes, idx }: { edge: MotifEdge; nodes: Map<string, MotifNode>; idx: number }) {
+function Edge({
+  edge,
+  nodes,
+  idx,
+  active,
+}: {
+  edge: MotifEdge;
+  nodes: Map<string, MotifNode>;
+  idx: number;
+  active?: boolean;
+}) {
   const a = nodes.get(edge.from);
   const b = nodes.get(edge.to);
   if (!a || !b) return null;
@@ -51,9 +62,11 @@ function Edge({ edge, nodes, idx }: { edge: MotifEdge; nodes: Map<string, MotifN
   const d = `M ${start.x} ${start.y} Q ${cx} ${cy} ${end.x} ${end.y}`;
   const deg = (angle * 180) / Math.PI;
 
+  const live = active ? " is-active" : "";
+
   if (edge.kind === "electrical") {
     return (
-      <g className="mx-edge mx-gap">
+      <g className={"mx-edge mx-gap" + live}>
         <path d={d} />
         <g transform={`translate(${cx} ${cy}) rotate(${deg})`}>
           <path className="mx-gap-mark" d="M -3.4 -2.6 L -3.4 2.6 M 0 -3.4 L 0 3.4 M 3.4 -2.6 L 3.4 2.6" />
@@ -63,7 +76,7 @@ function Edge({ edge, nodes, idx }: { edge: MotifEdge; nodes: Map<string, MotifN
   }
 
   return (
-    <g className={edge.sign === 1 ? "mx-edge mx-exc-edge" : "mx-edge mx-inh-edge"}>
+    <g className={(edge.sign === 1 ? "mx-edge mx-exc-edge" : "mx-edge mx-inh-edge") + live}>
       <path d={d} markerEnd={edge.sign === 1 ? `url(#mx-arrow-${idx})` : undefined} />
       {edge.sign === -1 && (
         <g transform={`translate(${end.x} ${end.y}) rotate(${deg})`}>
@@ -74,7 +87,16 @@ function Edge({ edge, nodes, idx }: { edge: MotifEdge; nodes: Map<string, MotifN
   );
 }
 
-export function MotifDiagram({ motif, compact }: { motif: MotifDef; compact?: boolean }) {
+export function MotifDiagram({
+  motif,
+  compact,
+  state,
+}: {
+  motif: MotifDef;
+  compact?: boolean;
+  /** Live simulation state. Omitted for a static diagram. */
+  state?: MotifState;
+}) {
   const nodes = new Map(motif.nodes.map((n) => [n.id, n]));
 
   return (
@@ -102,19 +124,40 @@ export function MotifDiagram({ motif, compact }: { motif: MotifDef; compact?: bo
       </defs>
 
       {motif.edges.map((edge, i) => (
-        <Edge key={`${edge.from}-${edge.to}-${i}`} edge={edge} nodes={nodes} idx={i} />
+        <Edge
+          key={`${edge.from}-${edge.to}-${i}`}
+          edge={edge}
+          nodes={nodes}
+          idx={i}
+          active={state?.activeEdges[edgeKey(edge)]}
+        />
       ))}
 
-      {motif.nodes.map((node) => (
-        <g key={node.id} className={KIND_CLASS[node.kind]}>
-          <circle cx={node.x} cy={node.y} r={R} />
-          {node.label && !compact && (
-            <text x={node.x} y={node.y + 2.4} textAnchor="middle">
-              {node.label}
-            </text>
-          )}
-        </g>
-      ))}
+      {motif.nodes.map((node) => {
+        const firing = Boolean(state?.fired[node.id]);
+        const charge = state ? Math.max(0, Math.min(1, (state.v[node.id] ?? 0))) : 0;
+        return (
+          <g key={node.id} className={KIND_CLASS[node.kind] + (firing ? " is-firing" : "")}>
+            {state && charge > 0.02 && (
+              <circle
+                className="mx-charge"
+                cx={node.x}
+                cy={node.y}
+                r={R}
+                strokeDasharray={`${charge * 2 * Math.PI * R} ${2 * Math.PI * R}`}
+                transform={`rotate(-90 ${node.x} ${node.y})`}
+              />
+            )}
+            <circle cx={node.x} cy={node.y} r={R} />
+            {firing && <circle className="mx-flash" cx={node.x} cy={node.y} r={R} />}
+            {node.label && !compact && (
+              <text x={node.x} y={node.y + 2.4} textAnchor="middle">
+                {node.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
