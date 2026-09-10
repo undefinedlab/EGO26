@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ComposeGraph } from "@/lib/composeCompiler";
+import { IconRefresh } from "@/components/icons";
 
 type Choice = { label: string; value: string };
 type Issue = { code: string; message: string };
@@ -41,7 +42,13 @@ const OPENERS = [
   "A drone that keeps its autopilot but overrides on danger",
 ];
 
-export function ComposeAssistant({ onApply }: { onApply: (graph: ComposeGraph) => void }) {
+export function ComposeAssistant({
+  onApply,
+  variant = "panel",
+}: {
+  onApply: (graph: ComposeGraph) => void;
+  variant?: "panel" | "dock";
+}) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [spec, setSpec] = useState<unknown>(null);
   const [text, setText] = useState("");
@@ -49,6 +56,7 @@ export function ComposeAssistant({ onApply }: { onApply: (graph: ComposeGraph) =
   const [error, setError] = useState("");
   const [source, setSource] = useState<"model" | "local" | null>(null);
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const log = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,6 +78,7 @@ export function ComposeAssistant({ onApply }: { onApply: (graph: ComposeGraph) =
     setBusy(true);
     setError("");
     setText("");
+    setExpanded(true);
     setTurns((t) => [...t, { role: "user", text: trimmed }]);
     try {
       const res = await fetch("/api/composer", {
@@ -94,9 +103,131 @@ export function ComposeAssistant({ onApply }: { onApply: (graph: ComposeGraph) =
     setSpec(null);
     setError("");
     setText("");
+    setExpanded(false);
   }
 
   const latestPlan = [...turns].reverse().find((t) => t.plan)?.plan;
+  const dock = variant === "dock";
+  const showThread = !dock || expanded || turns.length > 0;
+  const canSend = Boolean(text.trim()) && !busy;
+
+  if (dock) {
+    return (
+      <section
+        className={`cmp-ai cmp-ai--dock${expanded || turns.length ? " is-open" : ""}`}
+        aria-label="Describe what you want to build"
+      >
+        {showThread && turns.length > 0 ? (
+          <div className="cmp-ai-thread" ref={log} role="log" aria-live="polite">
+            <div className="cmp-ai-thread-spacer" aria-hidden />
+            {turns.map((t, i) => (
+              <div key={i} className={`cmp-ai-msg cmp-ai-msg--${t.role === "user" ? "user" : "assistant"}`}>
+                <span className="cmp-ai-msg-label">{t.role === "user" ? "You" : "Composer"}</span>
+                <p className="cmp-ai-msg-text">{t.text}</p>
+                {t.choices && i === turns.length - 1 ? (
+                  <div className="cmp-ai-choices">
+                    {t.choices.map((c) => (
+                      <button key={c.value} type="button" onClick={() => void send(c.label)} disabled={busy}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {t.plan ? <PlanCard plan={t.plan} onApply={onApply} isLatest={t.plan === latestPlan} /> : null}
+              </div>
+            ))}
+            {busy ? (
+              <div className="cmp-ai-msg cmp-ai-msg--assistant cmp-ai-msg--typing">
+                <span className="cmp-ai-msg-label">Composer</span>
+                <p className="cmp-ai-msg-text">Thinking…</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {error ? (
+          <p role="alert" className="cmp-ai-error">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="cmp-ai-prompt-dock">
+          {!turns.length ? (
+            <div className="cmp-ai-marquee" role="region" aria-label="Suggested prompts">
+              <div className="cmp-ai-marquee-track">
+                {[0, 1].map((copy) => (
+                  <div key={copy} className="cmp-ai-marquee-strip" aria-hidden={copy === 1}>
+                    {OPENERS.map((o) => (
+                      <button
+                        key={`${copy}-${o}`}
+                        type="button"
+                        className="cmp-ai-marquee-chip"
+                        disabled={busy}
+                        onClick={() => void send(o)}
+                      >
+                        {o.length > 42 ? `${o.slice(0, 40)}…` : o}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="cmp-ai-input-row">
+            <form
+              className="cmp-ai-composer"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send(text);
+              }}
+            >
+              <div className="cmp-ai-field">
+                <label className="sr-only" htmlFor="cmp-ai-input">
+                  Describe what you want to build
+                </label>
+                <input
+                  id="cmp-ai-input"
+                  className="cmp-ai-input"
+                  value={text}
+                  placeholder={turns.length ? "Add a detail…" : "Describe a neural reflex to compose…"}
+                  onChange={(e) => setText(e.target.value)}
+                  onFocus={() => setExpanded(true)}
+                  disabled={busy}
+                />
+              </div>
+              {turns.length > 0 ? (
+                <button
+                  type="button"
+                  className="cmp-ai-reset"
+                  onClick={restart}
+                  disabled={busy}
+                  title="Reset chat"
+                  aria-label="Reset chat"
+                >
+                  <IconRefresh size={15} />
+                </button>
+              ) : null}
+              <button
+                type="submit"
+                className="cmp-ai-submit"
+                disabled={!canSend}
+                title={busy ? "Sending…" : "Send"}
+                aria-label={busy ? "Sending…" : "Send"}
+              >
+                {busy ? "…" : "↑"}
+              </button>
+            </form>
+          </div>
+          <p className="cmp-ai-disclaimer">
+            {configured
+              ? "AI can make mistakes. Review the synthesised graph before compile."
+              : "Local extractor — plain words work best. Review before compile."}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="cmp-ai" aria-label="Describe what you want to build">
@@ -155,34 +286,38 @@ export function ComposeAssistant({ onApply }: { onApply: (graph: ComposeGraph) =
         </p>
       )}
 
-      <form
-        className="cmp-ai-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send(text);
-        }}
-      >
-        <label className="sr-only" htmlFor="cmp-ai-input">
-          Describe what you want to build
-        </label>
-        <input
-          id="cmp-ai-input"
-          value={text}
-          placeholder={turns.length ? "Add a detail…" : "I have a rover that should stop before hitting things…"}
-          onChange={(e) => setText(e.target.value)}
-          disabled={busy}
-        />
-        <button type="submit" disabled={busy || !text.trim()}>
-          {busy ? "Thinking…" : "Send"}
-        </button>
-        {turns.length > 0 && (
-          <button type="button" className="cmp-ai-restart" onClick={restart} disabled={busy}>
-            Start over
+      <div className="cmp-ai-form-wrap">
+        <form
+          className="cmp-ai-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send(text);
+          }}
+        >
+          <label className="sr-only" htmlFor="cmp-ai-input-panel">
+            Describe what you want to build
+          </label>
+          <input
+            id="cmp-ai-input-panel"
+            value={text}
+            placeholder={turns.length ? "Add a detail…" : "I have a rover that should stop before hitting things…"}
+            onChange={(e) => setText(e.target.value)}
+            disabled={busy}
+          />
+          <button type="submit" disabled={busy || !text.trim()}>
+            {busy ? "Thinking…" : "Send"}
           </button>
-        )}
-      </form>
+          {turns.length > 0 && (
+            <button type="button" className="cmp-ai-restart" onClick={restart} disabled={busy}>
+              Start over
+            </button>
+          )}
+        </form>
+      </div>
 
-      {source && <p className="cmp-ai-source">Answered by the {source === "model" ? "configured model" : "local extractor"}.</p>}
+      {source ? (
+        <p className="cmp-ai-source">Answered by the {source === "model" ? "configured model" : "local extractor"}.</p>
+      ) : null}
     </section>
   );
 }
