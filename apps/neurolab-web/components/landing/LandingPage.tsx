@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { HeroCanvas } from "@/components/landing/HeroCanvas";
 import ImpulseLife from "@/components/landing/ImpulseLife";
 import { DevTerminal } from "@/components/landing/DevTerminal";
-import { FloatingCluster, type ClusterCard } from "@/components/landing/FloatingCluster";
+import { FeatureBento } from "@/components/landing/FeatureBento";
 import { LandingDeck, type DeckSlide } from "@/components/landing/LandingDeck";
+import { UseCaseSlider } from "@/components/landing/UseCaseSlider";
+import { VerifySlider } from "@/components/landing/VerifySlider";
 import { Tilt } from "@/components/landing/Tilt";
 import {
   VizAudit,
@@ -32,131 +34,148 @@ const TRADEOFFS = [
   { kind: "little", qty: "Too little", label: "auditability", Viz: VizAudit },
 ] as const;
 
-const WHY_CLUSTER: ClusterCard[] = [
+const WHY_GAP = [
   {
-    id: "sync",
-    kind: "metric",
-    slot: "nw",
-    label: "Module sync",
-    value: "99.9%",
-    unit: "deterministic ticks",
+    id: "packaged",
+    title: "Can't be Packaged",
+    body: "Versioned modules with typed interfaces — not notebook dumps.",
   },
   {
-    id: "core",
-    kind: "note",
-    slot: "core",
-    label: "Missing layer",
-    title: "No shared software path",
-    body: "Connectomes and SNNs exist — packaging, composition, and verification still do not.",
+    id: "composed",
+    title: "Can't be Composed",
+    body: "Wire sensors → blocks → actuators into one portable stack.",
   },
   {
-    id: "pack",
-    kind: "note",
-    slot: "ne",
-    label: "Packaged",
-    title: "Reusable modules",
-    body: "Not notebooks. Versioned, typed, exportable.",
+    id: "exported",
+    title: "Can't be Exported",
+    body: "Ship the same graph to .synapse, WASM, Rust, Python, or ROS2.",
   },
   {
-    id: "cu",
-    kind: "metric",
-    slot: "sw",
-    label: "Sparse graph",
-    value: "12 CU",
-    unit: "local reflex budget",
+    id: "verified",
+    title: "Can't be Verified",
+    body: "Replay the critical path with receipts — independent of the author.",
+    accent: true as const,
   },
-  {
-    id: "live",
-    kind: "accent",
-    slot: "se",
-    label: "Verified runs",
-    title: "Replay ready",
-    body: "Independent validation path",
-    dots: 16,
-    lit: 11,
-  },
-];
+] as const;
 
-const HOW_CLUSTER: ClusterCard[] = [
+const HOW_CYCLE = [
   {
-    id: "s1",
-    kind: "step",
-    slot: "nw",
-    step: "01",
+    id: "explore",
     title: "Explore",
     body: "Discover NeuroBlocks with provenance and interfaces.",
   },
   {
-    id: "s2",
-    kind: "step",
-    slot: "ne",
-    step: "02",
+    id: "compose",
     title: "Compose",
     body: "Wire sensors → blocks → actuators in the Workbench.",
   },
   {
-    id: "s3",
-    kind: "step",
-    slot: "core",
-    step: "03",
+    id: "simulate",
     title: "Simulate",
-    body: "Run the exact Stack live — signal flow and scenarios in one loop.",
+    body: "Run the exact Stack live — signal flow in one loop.",
   },
   {
-    id: "s4",
-    kind: "step",
-    slot: "sw",
-    step: "04",
+    id: "compile",
     title: "Compile · Run",
     body: "Ship .synapse · WASM · Rust · Python · ROS2.",
   },
   {
-    id: "s5",
-    kind: "accent",
-    slot: "se",
-    label: "05 · Verify",
-    title: "NeuroReceipts",
-    body: "Replay the critical path",
-    dots: 12,
-    lit: 12,
+    id: "verify",
+    title: "Verify",
+    body: "Replay the critical path with NeuroReceipts.",
   },
-];
+] as const;
 
 const USE_CASES = [
   {
     title: "Robotics",
     body: "Fast local reflexes for collision avoidance, visual motion, navigation, and stabilization.",
     points: ["Collision dodge", "Loom response", "Heading hold"],
+    status: "REFLEX · LIVE",
   },
   {
     title: "Games & simulation",
     body: "Lightweight neural reactions for NPCs and agents — no large model in every frame loop.",
     points: ["NPC flinch", "Crowd motion", "Local pursuit"],
+    status: "NPC LOOP · 16MS",
   },
   {
     title: "3D & spatial",
     body: "Camera collision avoidance, motion response, and event-driven spatial behaviors.",
     points: ["Camera dodge", "Motion snap", "Room tracking"],
+    status: "CAM · ROOM LOCK",
   },
   {
     title: "Edge software",
     body: "Tiny deterministic SNN modules where latency, compute, privacy, or offline execution matter.",
     points: ["Offline reflex", "Private inference", "Low-power tick"],
+    status: "EDGE · OFFLINE",
   },
   {
     title: "Autonomous agents",
     body: "Pair high-level reasoning with low-level neural reflexes — planners decide; SynapseVM moves now.",
     points: ["Planner + reflex", "Safety interrupt", "Event veto"],
+    status: "PLAN + REFLEX",
   },
 ] as const;
 
 const VERIFICATION = [
-  { title: "Artifact verification", body: "Confirm package, modules, versions, runtime, and graph." },
-  { title: "Runtime receipt", body: "Record the exact execution context for a critical event." },
-  { title: "Deterministic replay", body: "Re-run the same Stack with the same input and state." },
-  { title: "External validation", body: "Verify execution in an independent environment." },
-  { title: "Public anchor", body: "Commit compact roots for tamper-evident audit history." },
-];
+  {
+    title: "Artifact verification",
+    body: "Confirm package, modules, versions, runtime, and graph.",
+    detail:
+      "The uploaded package is rebuilt and compared — identity, lockfile, and module bytes. A matching digest is comparison to expected bytes, not a publisher seal.",
+    points: [
+      "Graph, lockfile, and locked module identities recomputed",
+      "Expected SHA-256 compared when you supply one",
+      "Structure checked; signature remains a separate claim",
+    ],
+  },
+  {
+    title: "Runtime receipt",
+    body: "Record the exact execution context for a critical event.",
+    detail:
+      "A receipt binds the Stack to the tick: input, pre-state, outputs, and commands. It is evidence of what ran — not a certificate that the world matched.",
+    points: [
+      "Input, pre-state, neural outputs, and actuator commands",
+      "Commitments so the same path can be replayed later",
+      "Local evidence; unsigned until a signed module receipt is supplied",
+    ],
+  },
+  {
+    title: "Deterministic replay",
+    body: "Re-run the same Stack with the same input and state.",
+    detail:
+      "A fresh runtime replays the disclosed path. Match means the same graph, same input, and same state produced the same outputs — not that a robot moved.",
+    points: [
+      "Same Stack, same input, same complete pre-state",
+      "Exact output and post-state equality — no approximate matching",
+      "Replay withheld if the supplied commitments already fail",
+    ],
+  },
+  {
+    title: "External validation",
+    body: "Verify execution in an independent environment.",
+    detail:
+      "Another runtime — including the local Rust verifier for a signed module receipt — can witness the same claims. A missing independent result stays unverified; it is never a green check.",
+    points: [
+      "Independent implementation, not only the author's session",
+      "Local Rust replay of a neuroreceipt when evidence is supplied",
+      "Absence of an external result remains an open claim",
+    ],
+  },
+  {
+    title: "Public anchor",
+    body: "Commit compact roots for tamper-evident audit history.",
+    detail:
+      "Compact identity roots can be recorded so later auditors detect tampering. Inclusion is a separate claim — a local receipt is not a public record.",
+    points: [
+      "Compact roots (package, receipt, trace) — not full traces",
+      "Tamper-evident history only when an inclusion proof is checked",
+      "No public record is assumed from a local run",
+    ],
+  },
+] as const;
 
 function SlideHead({
   kicker,
@@ -219,10 +238,10 @@ export function LandingPage() {
               </div>
             </div>
 
-            <div className="hero-marquee" role="region" aria-label="What SynapseVM does">
+            <div className="hero-marquee glass" role="region" aria-label="What SynapseVM does">
               <div className="hero-marquee-track">
-                {[0, 1].map((copy) => (
-                  <div key={copy} className="hero-marquee-strip" aria-hidden={copy === 1}>
+                {[0, 1, 2, 3].map((copy) => (
+                  <div key={copy} className="hero-marquee-strip" aria-hidden={copy > 0}>
                     {HERO_TICKER.map((item) => (
                       <span key={`${copy}-${item}`} className="hero-marquee-item">
                         {item}
@@ -240,28 +259,30 @@ export function LandingPage() {
       id: "problem",
       label: "Problem",
       children: (
-        <Frame className="deck-frame--split">
-          <div className="problem-split deck-problem">
-            <SlideHead
-              kicker="The problem"
-              title="Autonomous systems are too dependent on oversized intelligence."
-              lead="Many agents rely on large general-purpose models for tasks that need neither language nor deep reasoning."
-            />
-            <div className="tradeoff-cloud tradeoff-cloud--deck" aria-label="Wrong tradeoffs">
-              {TRADEOFFS.map(({ Viz, ...t }, i) => (
-                <div key={t.label} className="tradeoff-cloud-slot" data-i={i}>
-                  <Tilt className="tradeoff glass tradeoff-cloud-card" max={6} data-kind={t.kind}>
-                    <div className="tradeoff-frame">
-                      <Viz />
-                    </div>
-                    <div className="tradeoff-meta">
-                      <span className="tradeoff-qty">{t.qty}</span>
-                      <span className="tradeoff-label">{t.label}</span>
-                    </div>
-                  </Tilt>
+        <Frame className="deck-frame--problem">
+          <SlideHead
+            kicker="The problem"
+            title="Autonomous systems are too dependent on oversized intelligence."
+            lead="Many agents rely on large general-purpose models for tasks that need neither language nor deep reasoning."
+          />
+          <div className="problem-bento" aria-label="Wrong tradeoffs">
+            {TRADEOFFS.map(({ Viz, ...t }) => (
+              <Tilt
+                key={t.label}
+                className={`tradeoff glass problem-bento-card${t.label === "compute" ? " problem-bento-card--hero" : ""}`}
+                max={6}
+                data-kind={t.kind}
+                data-area={t.label}
+              >
+                <div className="tradeoff-frame">
+                  <Viz />
                 </div>
-              ))}
-            </div>
+                <div className="tradeoff-meta">
+                  <span className="tradeoff-qty">{t.qty}</span>
+                  <span className="tradeoff-label">{t.label}</span>
+                </div>
+              </Tilt>
+            ))}
           </div>
         </Frame>
       ),
@@ -295,10 +316,23 @@ export function LandingPage() {
             kicker="Why now"
             title="The pieces exist. The software layer does not."
           />
-          <FloatingCluster cards={WHY_CLUSTER} className="float-cluster--why" />
-          <p className="cluster-foot">
+
+<p className="cluster-foot">
             Neural modules still have no shared way to be packaged, composed, exported, and verified.
           </p>
+          <div className="deck-bento deck-bento--gap" aria-label="Missing shared software path">
+            {WHY_GAP.map((card) => (
+              <Tilt
+                key={card.id}
+                className={`deck-tile${"accent" in card ? " deck-tile--accent" : " glass"}`}
+                max={5}
+              >
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
+              </Tilt>
+            ))}
+          </div>
+       
         </Frame>
       ),
     },
@@ -312,24 +346,6 @@ export function LandingPage() {
             title="SynapseVM turns neural circuits into portable software."
             lead="Hugging Face for SNNs — with composable neural control and verifiable execution."
           />
-          <div className="pitch-steps pitch-steps--inline">
-            <div className="pitch-step">
-              <b>Discover</b>
-              <span>neural modules</span>
-            </div>
-            <div className="pitch-step">
-              <b>Build</b>
-              <span>with them</span>
-            </div>
-            <div className="pitch-step">
-              <b>Run</b>
-              <span>them locally</span>
-            </div>
-            <div className="pitch-step">
-              <b>Verify</b>
-              <span>what they did</span>
-            </div>
-          </div>
         </Frame>
       ),
     },
@@ -337,12 +353,32 @@ export function LandingPage() {
       id: "how",
       label: "How it works",
       children: (
-        <Frame className="deck-frame--cluster">
-          <SlideHead
-            kicker="How it works"
-            title="Explore, compose, simulate, compile, run, verify."
-          />
-          <FloatingCluster cards={HOW_CLUSTER} className="float-cluster--how" />
+        <Frame className="deck-frame--cycle">
+          <div className="how-cycle" aria-label="SynapseVM loop">
+            <div className="how-cycle-ring" style={{ "--n": HOW_CYCLE.length } as CSSProperties}>
+              <div className="how-cycle-track" aria-hidden>
+                <svg viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="38" />
+                </svg>
+              </div>
+              <div className="how-cycle-hub" aria-hidden>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/synapse-mark.png" alt="" className="how-cycle-hub-mark" width={48} height={72} />
+              </div>
+              {HOW_CYCLE.map((step, i) => (
+                <div
+                  key={step.id}
+                  className="how-cycle-slot"
+                  style={{ "--i": i } as CSSProperties}
+                >
+                  <Tilt className="how-cycle-node glass" max={5}>
+                    <h3>{step.title}</h3>
+                    <p>{step.body}</p>
+                  </Tilt>
+                </div>
+              ))}
+            </div>
+          </div>
           <p className="cluster-foot">
             One path from neural module to replayable receipt — without a cloud in the reflex loop.
           </p>
@@ -353,37 +389,15 @@ export function LandingPage() {
       id: "features",
       label: "Features",
       children: (
-        <Frame>
+        <Frame className="deck-frame--cluster">
           <SlideHead
             kicker="Core features"
             title="Neural modules with interfaces, not opaque model files."
           />
-          <div className="bento bento--deck">
-            <Tilt className="feature glass bento--wide" max={5}>
-              <h3>NeuroBlocks</h3>
-              <p>Small, reusable neural functions with typed inputs and outputs.</p>
-            </Tilt>
-            <Tilt className="feature glass bento--wide" max={5}>
-              <h3>NeuroStacks</h3>
-              <p>Compose Blocks into complete machine behaviors — versioned and exportable.</p>
-            </Tilt>
-            <Tilt className="feature glass" max={5}>
-              <h3>Workbench</h3>
-              <p>Typed node editor with validation before compile.</p>
-            </Tilt>
-            <Tilt className="feature glass" max={5}>
-              <h3>3D Simulator</h3>
-              <p>Test the same compiled modules you export.</p>
-            </Tilt>
-            <Tilt className="feature glass" max={5}>
-              <h3>Deterministic runtime</h3>
-              <p>Reproducible execution that makes independent replay possible.</p>
-            </Tilt>
-            <Tilt className="feature glass" max={5}>
-              <h3>NeuroReceipts</h3>
-              <p>From neural input to final action — recorded, not assumed.</p>
-            </Tilt>
-          </div>
+          <FeatureBento />
+          <p className="cluster-foot">
+            Package once — compose, simulate, export, and verify the same graph.
+          </p>
         </Frame>
       ),
     },
@@ -391,23 +405,8 @@ export function LandingPage() {
       id: "usecases",
       label: "Use cases",
       children: (
-        <Frame>
-          <SlideHead kicker="Use cases" title="Where neural reflexes fit." />
-          <div className="case-list">
-            {USE_CASES.map((c) => (
-              <article key={c.title} className="case-list-row">
-                <h3>{c.title}</h3>
-                <div className="case-list-body">
-                  <p>{c.body}</p>
-                  <ul>
-                    {c.points.map((p) => (
-                      <li key={p}>{p}</li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-            ))}
-          </div>
+        <Frame className="deck-frame--cases">
+          <UseCaseSlider cases={USE_CASES} />
         </Frame>
       ),
     },
@@ -415,25 +414,13 @@ export function LandingPage() {
       id: "verify",
       label: "Verify",
       children: (
-        <Frame>
+        <Frame className="deck-frame--verify">
           <SlideHead
             kicker="Verification"
             title="Verification that follows the software."
             lead="Separate trust claims, instead of hiding them behind one green check."
           />
-          <div className="ladder ladder--deck">
-            {VERIFICATION.map((v, i) => (
-              <div key={v.title} className="ladder-row">
-                <span className="ladder-idx">{String(i + 1).padStart(2, "0")}</span>
-                <span className="ladder-title">{v.title}</span>
-                <p className="ladder-body">{v.body}</p>
-              </div>
-            ))}
-          </div>
-          <p className="ladder-note">
-            <span className="dot" aria-hidden />
-            Blockchain never sits inside the real-time reflex loop.
-          </p>
+          <VerifySlider layers={VERIFICATION} />
         </Frame>
       ),
     },
@@ -476,7 +463,6 @@ export function LandingPage() {
                   Explore NeuroBlocks
                 </Link>
               </div>
-              <p className="closer-meta mono">Discover · Compose · Simulate · Verify</p>
             </div>
           </div>
         </section>

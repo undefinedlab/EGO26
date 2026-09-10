@@ -285,3 +285,436 @@ export function CaseDither({ src, alt }: { src: string; alt: string }) {
     </div>
   );
 }
+
+export type CaseKind = "robotics" | "games" | "spatial" | "edge" | "agents";
+
+const PIXEL = 5;
+const PIXEL_GAP = 2;
+const PIXEL_STRIDE = PIXEL + PIXEL_GAP;
+
+type PixColors = ReturnType<typeof readColors> & { accentRgb: [number, number, number] };
+
+function plot(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  x: number,
+  y: number,
+  color: string,
+) {
+  if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+  ctx.fillStyle = color;
+  ctx.fillRect(ox + x * PIXEL_STRIDE, oy + y * PIXEL_STRIDE, PIXEL, PIXEL);
+}
+
+function stamp(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  sx: number,
+  sy: number,
+  pattern: readonly (readonly number[])[],
+  on: string,
+  accent: string,
+) {
+  for (let y = 0; y < pattern.length; y++) {
+    for (let x = 0; x < pattern[y].length; x++) {
+      const v = pattern[y][x];
+      if (!v) continue;
+      plot(ctx, ox, oy, cols, rows, sx + x, sy + y, v === 2 ? accent : on);
+    }
+  }
+}
+
+function dust(ctx: CanvasRenderingContext2D, ox: number, oy: number, cols: number, rows: number, colors: PixColors, density: number) {
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const th = (BAYER_8[y % 8][x % 8] + 0.5) / 64;
+      if (th > 1 - density) plot(ctx, ox, oy, cols, rows, x, y, colors.soft);
+    }
+  }
+}
+
+const ROBOT = [
+  [1, 1, 1],
+  [1, 2, 1],
+  [1, 1, 1],
+  [1, 0, 1],
+] as const;
+
+const INVADER = [
+  [0, 1, 0, 1, 0],
+  [1, 1, 1, 1, 1],
+  [1, 0, 1, 0, 1],
+] as const;
+
+const WALKER = [
+  [0, 1, 0],
+  [1, 1, 1],
+  [1, 0, 1],
+] as const;
+
+const CHIP = [
+  [0, 1, 0, 1, 0, 1, 0],
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 2, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [0, 1, 0, 1, 0, 1, 0],
+] as const;
+
+function paintRobotics(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  t: number,
+  colors: PixColors,
+) {
+  dust(ctx, ox, oy, cols, rows, colors, 0.07);
+  const p = (t % 2800) / 2800;
+  const loomX = cols * 0.7;
+  const loomY = rows * 0.46;
+  const loomR = 1.2 + p * Math.min(cols, rows) * 0.38;
+  const dodge = p > 0.52 && p < 0.88;
+  const rMax = Math.ceil(loomR);
+  for (let y = -rMax; y <= rMax; y++) {
+    for (let x = -rMax; x <= rMax; x++) {
+      const d = Math.hypot(x, y);
+      if (d > loomR || d < loomR - 2.4) continue;
+      const px = Math.round(loomX + x);
+      const py = Math.round(loomY + y);
+      plot(ctx, ox, oy, cols, rows, px, py, d > loomR - 1.1 ? colors.accent : colors.mid);
+    }
+  }
+  const rx = Math.round(cols * 0.22) - (dodge ? 3 : 0);
+  const ry = Math.round(rows * 0.5) + (dodge ? 2 : 0);
+  stamp(ctx, ox, oy, cols, rows, rx, ry, ROBOT, dodge ? colors.accent : colors.ink, colors.accent);
+}
+
+function paintGames(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  t: number,
+  colors: PixColors,
+  sprites: { x: number; y: number; dx: number }[],
+) {
+  dust(ctx, ox, oy, cols, rows, colors, 0.05);
+  const ground = rows - 3;
+  for (let x = 0; x < cols; x += 2) plot(ctx, ox, oy, cols, rows, x, ground, colors.soft);
+  const flinch = Math.floor(t / 1400) % 2 === 1;
+  sprites.forEach((s, i) => {
+    const shape = i % 2 === 0 ? INVADER : WALKER;
+    const y = Math.round(s.y) + (flinch ? -1 : 0);
+    stamp(
+      ctx,
+      ox,
+      oy,
+      cols,
+      rows,
+      Math.round(s.x),
+      y,
+      shape,
+      i === 0 ? colors.accent : colors.ink,
+      colors.accent,
+    );
+  });
+}
+
+function paintSpatial(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  t: number,
+  colors: PixColors,
+) {
+  dust(ctx, ox, oy, cols, rows, colors, 0.04);
+  const horizon = Math.round(rows * 0.38);
+  const vx = cols / 2;
+  for (let x = 0; x < cols; x++) {
+    if (x % 3 === 0) plot(ctx, ox, oy, cols, rows, x, horizon, colors.mid);
+  }
+  for (let i = -4; i <= 4; i++) {
+    const edgeX = vx + i * (cols * 0.22);
+    for (let s = 1; s <= 10; s++) {
+      const u = s / 10;
+      const x = Math.round(vx + (edgeX - vx) * u);
+      const y = Math.round(horizon + (rows - 2 - horizon) * u * u);
+      plot(ctx, ox, oy, cols, rows, x, y, s > 7 ? colors.ink : colors.soft);
+    }
+  }
+  for (let row = 1; row <= 6; row++) {
+    const u = row / 6;
+    const y = Math.round(horizon + (rows - 2 - horizon) * u * u);
+    const span = 2 + u * cols * 0.48;
+    for (let x = vx - span; x <= vx + span; x += Math.max(1.4, 3.2 - u * 2)) {
+      plot(ctx, ox, oy, cols, rows, Math.round(x), y, colors.mid);
+    }
+  }
+  const pulse = (Math.sin(t / 420) + 1) / 2;
+  const camX = Math.round(vx - 1 + (pulse > 0.72 ? 2 : 0));
+  const camY = Math.round(horizon + 4);
+  stamp(
+    ctx,
+    ox,
+    oy,
+    cols,
+    rows,
+    camX,
+    camY,
+    [
+      [0, 1, 0],
+      [1, 2, 1],
+      [0, 1, 0],
+    ],
+    colors.ink,
+    colors.accent,
+  );
+}
+
+function paintEdge(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  t: number,
+  colors: PixColors,
+) {
+  dust(ctx, ox, oy, cols, rows, colors, 0.035);
+  const cx = Math.round(cols / 2 - 3);
+  const cy = Math.round(rows / 2 - 2);
+  stamp(ctx, ox, oy, cols, rows, cx, cy, CHIP, colors.ink, colors.accent);
+  const pin = Math.floor(t / 700) % 6;
+  const pinX = cx + 1 + pin;
+  plot(ctx, ox, oy, cols, rows, pinX, cy - 1, colors.accent);
+  plot(ctx, ox, oy, cols, rows, pinX, cy + 5, colors.mid);
+  const tick = Math.floor(t / 900) % 8 === 0;
+  if (tick) plot(ctx, ox, oy, cols, rows, cx + 8, cy + 1, colors.accent);
+}
+
+function paintAgents(
+  ctx: CanvasRenderingContext2D,
+  ox: number,
+  oy: number,
+  cols: number,
+  rows: number,
+  t: number,
+  colors: PixColors,
+  path: { x: number; y: number }[],
+) {
+  dust(ctx, ox, oy, cols, rows, colors, 0.045);
+  const drawn = Math.min(path.length, 2 + Math.floor((t / 90) % (path.length + 18)));
+  for (let i = 0; i < drawn && i < path.length; i++) {
+    plot(ctx, ox, oy, cols, rows, path[i].x, path[i].y, i === drawn - 1 ? colors.accent : colors.mid);
+  }
+  const threatOn = drawn > path.length * 0.45 && drawn < path.length * 0.82;
+  if (threatOn && path.length) {
+    const hit = path[Math.floor(path.length * 0.62)];
+    plot(ctx, ox, oy, cols, rows, hit.x + 1, hit.y - 2, colors.accent);
+    plot(ctx, ox, oy, cols, rows, hit.x + 2, hit.y - 1, colors.accent);
+    plot(ctx, ox, oy, cols, rows, hit.x + 1, hit.y, colors.ink);
+    // reflex veto spike
+    for (let k = 0; k < 4; k++) plot(ctx, ox, oy, cols, rows, hit.x - k, hit.y - k, colors.accent);
+  }
+  if (path.length) {
+    const goal = path[path.length - 1];
+    stamp(
+      ctx,
+      ox,
+      oy,
+      cols,
+      rows,
+      goal.x,
+      goal.y,
+      [
+        [1, 1],
+        [1, 1],
+      ],
+      colors.ink,
+      colors.accent,
+    );
+  }
+}
+
+function buildAgentPath(cols: number, rows: number) {
+  const path: { x: number; y: number }[] = [];
+  let x = 2;
+  let y = Math.round(rows * 0.7);
+  const gx = cols - 4;
+  const gy = Math.round(rows * 0.28);
+  while (x < gx || y > gy) {
+    path.push({ x, y });
+    if (x < gx && ((x + y) % 3 !== 0 || y <= gy)) x += 1;
+    else if (y > gy) y -= 1;
+    else x += 1;
+    if (path.length > 80) break;
+  }
+  path.push({ x: gx, y: gy });
+  return path;
+}
+
+/**
+ * Per-case pixel field — same dither lattice as the photo dither,
+ * but drawn procedurally so robotics ≠ games ≠ edge.
+ */
+export function CasePixel({
+  kind,
+  alt,
+  playing = true,
+}: {
+  kind: CaseKind;
+  alt: string;
+  playing?: boolean;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const wrapEl = wrap.current;
+    const canvas = canvasRef.current;
+    if (!wrapEl || !canvas) return;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return;
+
+    let cols = 0;
+    let rows = 0;
+    let ox = 0;
+    let oy = 0;
+    let cssW = 0;
+    let cssH = 0;
+    let colors: PixColors = { ...readColors(), accentRgb: [255, 77, 18] };
+    let sprites = [
+      { x: 3, y: 6, dx: 0.08 },
+      { x: 12, y: 11, dx: -0.06 },
+      { x: 20, y: 8, dx: 0.05 },
+    ];
+    let path: { x: number; y: number }[] = [];
+    let raf = 0;
+    let running = true;
+    let visible = true;
+    let still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let last = 0;
+
+    const refreshColors = () => {
+      const next = readColors();
+      const hex = next.accent.startsWith("#") ? next.accent : "#ff4d12";
+      colors = { ...next, accentRgb: hexToRgb(hex) };
+    };
+
+    const layout = () => {
+      const w = wrapEl.clientWidth;
+      const h = wrapEl.clientHeight;
+      if (w < 2 || h < 2) return;
+      cssW = w;
+      cssH = h;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cols = Math.max(18, Math.floor((w + PIXEL_GAP) / PIXEL_STRIDE));
+      rows = Math.max(14, Math.floor((h + PIXEL_GAP) / PIXEL_STRIDE));
+      const gridW = cols * PIXEL_STRIDE - PIXEL_GAP;
+      const gridH = rows * PIXEL_STRIDE - PIXEL_GAP;
+      ox = (w - gridW) / 2;
+      oy = (h - gridH) / 2;
+      sprites = [
+        { x: 2, y: Math.max(3, Math.round(rows * 0.28)), dx: 0.09 },
+        { x: Math.max(6, Math.round(cols * 0.38)), y: Math.max(5, Math.round(rows * 0.48)), dx: -0.07 },
+        { x: Math.max(8, Math.round(cols * 0.62)), y: Math.max(4, Math.round(rows * 0.34)), dx: 0.06 },
+      ];
+      path = buildAgentPath(cols, rows);
+    };
+
+    const paint = (t: number) => {
+      if (cols < 2) return;
+      ctx.clearRect(0, 0, cssW, cssH);
+      if (kind === "robotics") paintRobotics(ctx, ox, oy, cols, rows, t, colors);
+      else if (kind === "games") paintGames(ctx, ox, oy, cols, rows, t, colors, sprites);
+      else if (kind === "spatial") paintSpatial(ctx, ox, oy, cols, rows, t, colors);
+      else if (kind === "edge") paintEdge(ctx, ox, oy, cols, rows, t, colors);
+      else paintAgents(ctx, ox, oy, cols, rows, t, colors, path);
+    };
+
+    const stepSprites = () => {
+      for (const s of sprites) {
+        s.x += s.dx;
+        const maxX = cols - 6;
+        if (s.x <= 1 || s.x >= maxX) s.dx *= -1;
+      }
+    };
+
+    const tick = (now: number) => {
+      if (!running) return;
+      raf = requestAnimationFrame(tick);
+      const live = visible && playing && !still;
+      if (!live) return;
+      if (now - last < 70) return;
+      last = now;
+      if (kind === "games") stepSprites();
+      paint(now);
+    };
+
+    refreshColors();
+    layout();
+    paint(performance.now());
+    raf = requestAnimationFrame(tick);
+
+    const ro = new ResizeObserver(() => {
+      layout();
+      paint(performance.now());
+    });
+    ro.observe(wrapEl);
+
+    const io = new IntersectionObserver(
+      ([e]) => {
+        visible = e.isIntersecting;
+        if (visible) paint(performance.now());
+      },
+      { threshold: 0.08 },
+    );
+    io.observe(wrapEl);
+
+    const onTheme = () => {
+      refreshColors();
+      paint(performance.now());
+    };
+    const obs = new MutationObserver(onTheme);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    scheme.addEventListener("change", onTheme);
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onMotion = () => {
+      still = motion.matches;
+      paint(performance.now());
+    };
+    motion.addEventListener("change", onMotion);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+      obs.disconnect();
+      scheme.removeEventListener("change", onTheme);
+      motion.removeEventListener("change", onMotion);
+    };
+  }, [kind, playing]);
+
+  return (
+    <div className="case-dither case-pixel" ref={wrap} role="img" aria-label={alt}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
