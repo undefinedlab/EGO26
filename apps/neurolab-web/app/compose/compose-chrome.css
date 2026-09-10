@@ -946,3 +946,952 @@
       var(--c-panel)
     );
   box-shadow:
+    0 10px 28px color-mix(in srgb, var(--c-ink) 7%, transparent),
+    0 1px 0 color-mix(in srgb, #fff 70%, transparent) inset;
+  overflow: hidden;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.cmp-mode-compose .cmp-node:hover {
+  border-color: color-mix(in srgb, var(--node-color) 28%, var(--c-line));
+  box-shadow:
+    0 14px 34px color-mix(in srgb, var(--c-ink) 10%, transparent),
+    0 1px 0 color-mix(in srgb, #fff 70%, transparent) inset;
+}
+.cmp-mode-compose .cmp-node.selected {
+  outline: none;
+  border-color: color-mix(in srgb, var(--node-color) 45%, var(--c-line));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--node-color) 18%, transparent),
+    0 16px 36px color-mix(in srgb, var(--c-ink) 12%, transparent);
+}
+.cmp-mode-compose .cmp-node.active {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--node-color) 16%, transparent),
+    0 14px 32px color-mix(in srgb, var(--c-ink) 10%, transparent);
+}
+.cmp-mode-compose .cmp-node-head {
+  gap: 5px !important;
+  padding: 12px 14px 8px !important;
+}
+.cmp-mode-compose .cmp-node-head small {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: color-mix(in srgb, var(--node-color) 72%, var(--c-muted));
+  font-weight: 650;
+}
+.cmp-mode-compose .cmp-node-head small::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--node-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-color) 18%, transparent);
+  flex: none;
+}
+.cmp-mode-compose .cmp-node-head strong {
+  font-size: 14px;
+  letter-spacing: -0.02em;
+  color: var(--c-ink);
+}
+.cmp-mode-compose .cmp-node-head > span {
+  font-size: 10px;
+  color: var(--c-muted);
+}
+.cmp-mode-compose .cmp-ports {
+  padding: 2px 8px 10px;
+  gap: 6px;
+}
+.cmp-mode-compose .cmp-ports button {
+  height: 26px;
+  border-radius: 7px !important;
+  padding: 0 10px !important;
+  color: var(--c-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.cmp-mode-compose .cmp-ports button:hover,
+.cmp-mode-compose .cmp-ports button.pending {
+  background: color-mix(in srgb, var(--node-color) 10%, transparent) !important;
+  color: var(--c-ink);
+  font-weight: 650;
+}
+.cmp-mode-compose .cmp-ports i {
+  width: 9px;
+  height: 9px;
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--node-color) 70%, var(--c-line));
+  background: var(--c-panel);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-panel) 90%, transparent);
+}
+.cmp-mode-compose .cmp-ports button.pending i {
+  background: var(--node-color);
+  border-color: var(--node-color);
+}
+[data-theme="dark"] .cmp-mode-compose .cmp-node,
+:root[data-theme="dark"] .cmp-mode-compose .cmp-node {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #1a1d21 92%, var(--node-color) 8%),
+      #15181c
+    );
+  border-color: rgba(255, 255, 255, 0.08);
+  border-top-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .cmp-mode-compose .cmp-node.selected,
+:root[data-theme="dark"] .cmp-mode-compose .cmp-node.selected {
+  border-color: color-mix(in srgb, var(--node-color) 40%, rgba(255, 255, 255, 0.12));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--node-color) 22%, transparent),
+    0 16px 36px rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .cmp-mode-compose .cmp-node-head strong,
+:root[data-theme="dark"] .cmp-mode-compose .cmp-node-head strong {
+  color: rgba(241, 241, 239, 0.94);
+}
+[data-theme="dark"] .cmp-mode-compose .cmp-ports i,
+:root[data-theme="dark"] .cmp-mode-compose .cmp-ports i {
+  background: #15181c;
+  box-shadow: 0 0 0 2px #15181c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cmp-mode-compose .cmp-node {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #1a1d21 92%, var(--node-color) 8%),
+        #15181c
+      );
+    border-color: rgba(255, 255, 255, 0.08);
+    border-top-color: rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 12px 30px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  :root:not([data-theme="light"]) .cmp-mode-compose .cmp-node-head strong {
+    color: rgba(241, 241, 239, 0.94);
+  }
+  :root:not([data-theme="light"]) .cmp-mode-compose .cmp-ports i {
+    background: #15181c;
+    box-shadow: 0 0 0 2px #15181c;
+  }
+}
+
+@media (max-width: 1100px) {
+  .cmp-blocks { width: 200px; }
+}
+@media (max-width: 900px) {
+  .cmp-mode-compose .cmp-workspace { grid-template-columns: minmax(0, 1fr); }
+  /* On a small canvas the rail would eat most of it, and HTML5 drag does not
+     work on touch anyway. The stepped Add menu in the top bar covers this. */
+  .cmp-blocks { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmp-blocks, .cmp-blocks-item { transition: none !important; }
+}
+
+/* ── Light theme chrome — light glass bar + dock ────────────────────────── */
+[data-theme="light"] .cmp-mode-compose,
+[data-theme="light"] .cmp-mode-compile {
+  --cmp-chrome-bg: rgba(255, 255, 255, 0.48);
+  --cmp-chrome-glass: rgba(255, 255, 255, 0.48);
+  --cmp-chrome-solid: #ffffff;
+  --cmp-chrome-border: rgba(22, 28, 26, 0.12);
+  --cmp-chrome-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --cmp-chrome-text: rgba(22, 28, 26, 0.92);
+  --cmp-chrome-muted: rgba(22, 28, 26, 0.62);
+  --cmp-chrome-subtle: rgba(22, 28, 26, 0.46);
+  --cmp-chrome-btn-bg: rgba(22, 28, 26, 0.04);
+  --cmp-chrome-btn-border: rgba(22, 28, 26, 0.14);
+  --cmp-chrome-btn-border-strong: rgba(22, 28, 26, 0.28);
+  --cmp-chrome-btn-hover: rgba(22, 28, 26, 0.07);
+  --cmp-chrome-input-bg: rgba(255, 255, 255, 0.4);
+  --cmp-chrome-input-border: rgba(22, 28, 26, 0.14);
+  --cmp-chrome-sep: rgba(22, 28, 26, 0.12);
+  --cmp-chrome-menu-bg: rgba(255, 255, 255, 0.96);
+  --cmp-chrome-menu-line: rgba(22, 28, 26, 0.08);
+  --cmp-chrome-count-bg: rgba(22, 28, 26, 0.08);
+  --cmp-chrome-glow: none;
+  --cmp-chrome-shadow: 0 8px 28px rgba(16, 24, 20, 0.1);
+  --cmp-chrome-link: #1d4ed8;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-mode-compose,
+  :root:not([data-theme="dark"]) .cmp-mode-compile {
+    --cmp-chrome-bg: rgba(255, 255, 255, 0.48);
+    --cmp-chrome-glass: rgba(255, 255, 255, 0.48);
+    --cmp-chrome-solid: #ffffff;
+    --cmp-chrome-border: rgba(22, 28, 26, 0.12);
+    --cmp-chrome-inset: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    --cmp-chrome-text: rgba(22, 28, 26, 0.92);
+    --cmp-chrome-muted: rgba(22, 28, 26, 0.62);
+    --cmp-chrome-subtle: rgba(22, 28, 26, 0.46);
+    --cmp-chrome-btn-bg: rgba(22, 28, 26, 0.04);
+    --cmp-chrome-btn-border: rgba(22, 28, 26, 0.14);
+    --cmp-chrome-btn-border-strong: rgba(22, 28, 26, 0.28);
+    --cmp-chrome-btn-hover: rgba(22, 28, 26, 0.07);
+    --cmp-chrome-input-bg: rgba(255, 255, 255, 0.4);
+    --cmp-chrome-input-border: rgba(22, 28, 26, 0.14);
+    --cmp-chrome-sep: rgba(22, 28, 26, 0.12);
+    --cmp-chrome-menu-bg: rgba(255, 255, 255, 0.96);
+    --cmp-chrome-menu-line: rgba(22, 28, 26, 0.08);
+    --cmp-chrome-count-bg: rgba(22, 28, 26, 0.08);
+    --cmp-chrome-glow: none;
+    --cmp-chrome-shadow: 0 8px 28px rgba(16, 24, 20, 0.1);
+    --cmp-chrome-link: #1d4ed8;
+  }
+}
+/* The port lines are the smallest text on the page; give them the muted tone
+   rather than the subtle one so they clear AA in both themes. */
+.cmp-blocks-io { color: var(--cmp-chrome-muted); }
+.cmp-blocks-io i { color: var(--cmp-chrome-subtle); }
+
+/* `.cmp p` (0,1,1) outranks a lone class, so the paragraphs inside the rail
+   need the extra specificity or they inherit the page-theme grey onto dark
+   glass and drop under AA. */
+.cmp-blocks .cmp-blocks-hint { color: var(--cmp-chrome-muted); }
+.cmp-blocks .cmp-blocks-empty { color: var(--cmp-chrome-muted); }
+/* Direction prefix stays quieter than the type it labels, but still legible. */
+.cmp-blocks-io { color: var(--cmp-chrome-text); }
+.cmp-blocks-io i { color: var(--cmp-chrome-muted); }
+
+/* ══ Compile chrome — Siphon-style action bar + glass inspector ═══════════ */
+
+.cmp-mode-compile .cmp-workspace {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 330px);
+}
+.cmp-mode-compile .cmp-center {
+  position: relative;
+  min-width: 0;
+}
+.cmp-mode-compile .cmp-stage {
+  display: block;
+  min-height: min(58vh, 520px);
+}
+.cmp-mode-compose .cmp-canvas-tools {
+  display: flex;
+  border-bottom: 0 !important;
+  padding: 0 !important;
+  background: none !important;
+}
+.cmp-mode-compile .cmp-canvas-tools { display: flex; }
+.cmp-mode-compile .cmp-palette { display: none; }
+.cmp-mode-compile:has(.cmp-inspector[hidden]) .cmp-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cmp-compile-stack {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: min(96vw, 1080px);
+}
+.cmp-compile-bar .cmp-float-bar-inner {
+  width: 100%;
+  max-width: none;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.cmp-compile-status-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.35rem;
+  pointer-events: none;
+}
+.cmp-compile-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0 !important;
+  padding: 0;
+  color: var(--cmp-chrome-muted) !important;
+  font-family: var(--cmp-chrome-mono);
+  font-size: 9px !important;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.cmp-compile-status span {
+  display: inline-flex;
+  align-items: center;
+}
+.cmp-compile-status i {
+  font-style: normal;
+  color: color-mix(in srgb, var(--cmp-chrome-muted) 55%, transparent);
+  user-select: none;
+}
+.cmp-add-embedded,
+.cmp-add-embedded .cmp-add-anchor {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  flex-shrink: 0;
+}
+.cmp-compile-bar .cmp-add-embedded .cmp-add-menu {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.cmp-compile-file {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.cmp-compile-icon-btn {
+  display: inline-grid !important;
+  place-items: center;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--cmp-chrome-btn-border) !important;
+  background: var(--cmp-chrome-btn-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cmp-compile-icon-btn:hover,
+.cmp-compile-icon-btn.is-open {
+  background: var(--cmp-chrome-btn-hover) !important;
+  border-color: var(--cmp-chrome-btn-border-strong) !important;
+}
+.cmp-compile-icon-btn.is-saved {
+  border-color: rgba(74, 158, 110, 0.5) !important;
+  color: #3d8f62 !important;
+}
+.cmp-compile-filename {
+  width: min(11rem, 28vw);
+  height: 34px;
+  padding: 0 0.65rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--cmp-chrome-input-border) !important;
+  background: var(--cmp-chrome-input-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+  font-family: var(--cmp-chrome-mono) !important;
+  font-size: 11px !important;
+  outline: none;
+}
+.cmp-compile-filename:focus { border-color: var(--cmp-chrome-btn-border-strong) !important; }
+.cmp-compile-import { position: relative; overflow: hidden; cursor: pointer; }
+.cmp-compile-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.cmp-compile-primary {
+  gap: 0.4rem;
+  padding: 0 0.9rem !important;
+  border-color: color-mix(in srgb, var(--accent, #ff4d12) 55%, transparent) !important;
+  background: var(--accent, #ff4d12) !important;
+  color: #0b0c0d !important;
+}
+.cmp-compile-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+}
+.cmp-compile-primary svg { flex-shrink: 0; }
+.cmp-compile-run-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 34px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0 0.85rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--accent, #ff4d12) !important;
+  background: var(--accent, #ff4d12) !important;
+  color: #0b0c0d !important;
+  font-family: var(--cmp-chrome-mono) !important;
+  font-size: 10px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cmp-compile-run-btn svg {
+  flex-shrink: 0;
+  color: currentColor;
+}
+.cmp-compile-run-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+  border-color: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+}
+.cmp-compile-run-btn.has-build {
+  box-shadow: inset 0 0 0 1px rgba(11, 12, 13, 0.12);
+}
+.cmp-compile-run-btn.is-busy {
+  opacity: 0.75;
+}
+[data-theme="light"] .cmp-compile-run-btn {
+  background: var(--accent, #ff4d12) !important;
+  border-color: var(--accent, #ff4d12) !important;
+  color: #0b0c0d !important;
+}
+[data-theme="light"] .cmp-compile-run-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-compile-run-btn {
+    background: var(--accent, #ff4d12) !important;
+    border-color: var(--accent, #ff4d12) !important;
+    color: #0b0c0d !important;
+  }
+}
+.cmp-canvas-tools {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 36;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: 0;
+  border-bottom: 0;
+  background: none;
+  font-size: inherit;
+}
+.cmp-canvas-tools .cmp-inspector-reopen {
+  position: static;
+  top: auto;
+  right: auto;
+}
+.cmp-canvas-zoom {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+.cmp-canvas-zoom button {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cmp-chrome-muted, rgba(255, 255, 255, 0.55));
+  font-family: var(--cmp-chrome-mono, ui-monospace, monospace);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+.cmp-canvas-zoom button:hover {
+  color: var(--cmp-chrome-text, #e8ecea);
+  background: color-mix(in srgb, var(--cmp-chrome-text, #e8ecea) 8%, transparent);
+}
+[data-theme="light"] .cmp-canvas-zoom button {
+  color: color-mix(in srgb, var(--c-ink, #161c1a) 45%, transparent);
+}
+[data-theme="light"] .cmp-canvas-zoom button:hover {
+  color: var(--c-ink, #161c1a);
+  background: color-mix(in srgb, var(--c-ink, #161c1a) 6%, transparent);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-canvas-zoom button {
+    color: color-mix(in srgb, var(--c-ink, #161c1a) 45%, transparent);
+  }
+  :root:not([data-theme="dark"]) .cmp-canvas-zoom button:hover {
+    color: var(--c-ink, #161c1a);
+    background: color-mix(in srgb, var(--c-ink, #161c1a) 6%, transparent);
+  }
+}
+.cmp-mode-compose .cmp-view-controls { display: none; }
+[data-theme="light"] .cmp-compile-primary {
+  background: var(--accent, #ff4d12) !important;
+  border-color: var(--accent, #ff4d12) !important;
+  color: #0b0c0d !important;
+}
+[data-theme="light"] .cmp-compile-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-compile-primary {
+    background: var(--accent, #ff4d12) !important;
+    border-color: var(--accent, #ff4d12) !important;
+    color: #0b0c0d !important;
+  }
+  :root:not([data-theme="dark"]) .cmp-compile-primary:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+  }
+}
+.cmp-add-trigger.is-saved {
+  border-color: rgba(143, 211, 174, 0.45) !important;
+  color: #8fd3ae !important;
+}
+.cmp-compile-saved-menu { left: 0; transform: none; min-width: 14rem; }
+.cmp-compile-saved-row { display: flex; align-items: center; gap: 0.2rem; }
+.cmp-compile-saved-row .cmp-add-item { flex: 1; }
+.cmp-compile-delete {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--cmp-chrome-muted) !important;
+  padding: 0.35rem 0.5rem !important;
+  cursor: pointer;
+  font-size: 14px;
+}
+.cmp-compile-delete:hover { color: #efa189 !important; }
+
+.cmp-compile-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+.cmp-compile-dialog {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 1rem 1.1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid var(--cmp-chrome-border);
+  background: var(--cmp-chrome-menu-bg);
+  color: var(--cmp-chrome-text);
+  box-shadow: var(--cmp-chrome-shadow);
+}
+.cmp-compile-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+.cmp-compile-dialog h3 {
+  margin: 0;
+  font-size: 14px;
+  font-family: var(--cmp-chrome-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cmp-compile-dialog header button {
+  border: 0 !important;
+  background: none !important;
+  color: var(--cmp-chrome-muted) !important;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px !important;
+  cursor: pointer;
+}
+.cmp-compile-dialog input {
+  width: 100%;
+  height: 40px;
+  padding: 0 0.75rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--cmp-chrome-input-border) !important;
+  background: var(--cmp-chrome-input-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+  font-family: var(--cmp-chrome-mono) !important;
+  font-size: 13px !important;
+  outline: none;
+}
+.cmp-compile-dialog-hint {
+  margin: 0.55rem 0 0 !important;
+  font-size: 10px !important;
+  color: var(--cmp-chrome-subtle) !important;
+  font-family: var(--cmp-chrome-mono);
+}
+.cmp-compile-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+.cmp-compile-dialog footer button {
+  height: 34px;
+  padding: 0 0.85rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--cmp-chrome-btn-border) !important;
+  background: var(--cmp-chrome-btn-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+  font-family: var(--cmp-chrome-mono) !important;
+  font-size: 11px !important;
+  cursor: pointer;
+}
+.cmp-compile-dialog-save {
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  background: rgba(59, 130, 246, 0.28) !important;
+}
+.cmp-compile-dialog-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.cmp-compile-dialog--build {
+  width: min(24rem, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cmp-compile-dialog-primary {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 2.35rem;
+  border-radius: 9px !important;
+  border: 1px solid var(--accent, #ff4d12) !important;
+  background: var(--accent, #ff4d12) !important;
+  color: #0b0c0d !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cmp-compile-dialog-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+  border-color: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
+}
+.cmp-compile-dialog-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.cmp-compile-dialog-warn {
+  margin: 0;
+  font-size: 11px;
+  color: #efa189;
+}
+.cmp-compile-dialog-build {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--cmp-chrome-menu-line, rgba(255, 255, 255, 0.08));
+  font-size: 11px;
+}
+.cmp-compile-dialog-build code {
+  font-size: 10px;
+  color: var(--cmp-chrome-muted);
+  overflow-wrap: anywhere;
+}
+.cmp-compile-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.cmp-compile-dialog-actions button {
+  font-size: 11px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--cmp-chrome-btn-border) !important;
+  background: var(--cmp-chrome-btn-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+  cursor: pointer;
+}
+.cmp-compile-dialog-actions button.run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cmp-compile-buildstrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-line);
+  font-size: 11px;
+}
+.cmp-compile-buildstrip code { font-size: 10px; color: var(--c-muted); }
+.cmp-compile-buildstrip button { font-size: 11px; padding: 6px 10px; }
+
+.cmp-wire-hint {
+  position: absolute;
+  top: 4.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 7px 12px;
+  border: 1px solid var(--cmp-chrome-border);
+  border-radius: 10px;
+  background: var(--cmp-chrome-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--cmp-chrome-shadow), var(--cmp-chrome-inset);
+  font-size: 11px;
+  color: var(--cmp-chrome-muted);
+  pointer-events: auto;
+}
+.cmp-mode-compose .cmp-wire-hint {
+  color: var(--cmp-chrome-text);
+}
+.cmp-wire-hint button {
+  font-size: 11px;
+  padding: 5px 9px;
+}
+
+.cmp-view-controls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: 10px;
+  border: 1px solid var(--cmp-chrome-border);
+  background: var(--cmp-chrome-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32), var(--cmp-chrome-inset);
+  color: var(--cmp-chrome-text);
+  pointer-events: auto;
+}
+.cmp-view-controls button {
+  height: 30px !important;
+  min-width: 30px;
+  padding: 0 0.55rem !important;
+  border-radius: 7px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--cmp-chrome-text) !important;
+  font-family: var(--cmp-chrome-mono) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cmp-view-controls button:hover {
+  background: var(--cmp-chrome-btn-hover) !important;
+  border-color: var(--cmp-chrome-btn-border) !important;
+}
+.cmp-view-pct {
+  min-width: 2.6rem;
+  text-align: center;
+  font-family: var(--cmp-chrome-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cmp-chrome-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cmp-view-sep {
+  width: 1px;
+  height: 1.35rem;
+  margin: 0 0.15rem;
+  background: var(--cmp-chrome-sep);
+}
+
+.cmp-mode-compose .cmp-inspector--glass,
+.cmp-mode-compile .cmp-inspector--glass {
+  --cmp-inspector-glass: color-mix(in srgb, #0a0c10 34%, transparent);
+  --cmp-inspector-hairline: color-mix(in srgb, #fff 5%, transparent);
+  --cmp-inspector-blur: blur(22px) saturate(160%);
+}
+[data-theme="light"] .cmp-mode-compose .cmp-inspector--glass,
+[data-theme="light"] .cmp-mode-compile .cmp-inspector--glass {
+  --cmp-inspector-glass: color-mix(in srgb, var(--c-bg, #f4f6f5) 36%, transparent);
+  --cmp-inspector-hairline: color-mix(in srgb, var(--c-ink, #161c1a) 5%, transparent);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-mode-compose .cmp-inspector--glass,
+  :root:not([data-theme="dark"]) .cmp-mode-compile .cmp-inspector--glass {
+    --cmp-inspector-glass: color-mix(in srgb, var(--c-bg, #f4f6f5) 36%, transparent);
+    --cmp-inspector-hairline: color-mix(in srgb, var(--c-ink, #161c1a) 5%, transparent);
+  }
+}
+.cmp-mode-compose .cmp-inspector--glass {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 6.5rem;
+  z-index: 55;
+  grid-column: auto;
+  width: min(20rem, calc(100% - 28px));
+  margin: 0;
+  max-height: none;
+  padding: 0 16px 24px;
+  border: 1px solid var(--cmp-inspector-hairline);
+  border-radius: 12px;
+  background: var(--cmp-inspector-glass);
+  backdrop-filter: var(--cmp-inspector-blur);
+  -webkit-backdrop-filter: var(--cmp-inspector-blur);
+  box-shadow: 0 10px 36px rgba(8, 10, 14, 0.12);
+  color: var(--cmp-chrome-text);
+  overflow: auto;
+  pointer-events: auto;
+}
+.cmp-mode-compile .cmp-inspector--glass {
+  position: relative;
+  margin: 12px 12px 12px 0;
+  max-height: calc(100vh - 140px);
+  padding: 0 16px 24px;
+  border: 1px solid var(--cmp-inspector-hairline);
+  border-radius: 12px;
+  background: var(--cmp-inspector-glass);
+  backdrop-filter: var(--cmp-inspector-blur);
+  -webkit-backdrop-filter: var(--cmp-inspector-blur);
+  box-shadow: 0 10px 36px rgba(8, 10, 14, 0.12);
+  color: var(--cmp-chrome-text);
+  overflow: auto;
+}
+.cmp-mode-compose .cmp-inspector--glass h2,
+.cmp-mode-compose .cmp-inspector--glass h3,
+.cmp-mode-compose .cmp-inspector--glass .cmp-eyebrow,
+.cmp-mode-compile .cmp-inspector--glass h2,
+.cmp-mode-compile .cmp-inspector--glass h3,
+.cmp-mode-compile .cmp-inspector--glass .cmp-eyebrow { color: var(--cmp-chrome-text); }
+.cmp-mode-compose .cmp-inspector--glass p,
+.cmp-mode-compose .cmp-inspector--glass dt,
+.cmp-mode-compose .cmp-inspector--glass .cmp-small,
+.cmp-mode-compile .cmp-inspector--glass p,
+.cmp-mode-compile .cmp-inspector--glass dt,
+.cmp-mode-compile .cmp-inspector--glass .cmp-small { color: var(--cmp-chrome-muted) !important; }
+.cmp-mode-compose .cmp-inspector--glass label,
+.cmp-mode-compose .cmp-inspector--glass dd,
+.cmp-mode-compile .cmp-inspector--glass label,
+.cmp-mode-compile .cmp-inspector--glass dd { color: var(--cmp-chrome-text); }
+.cmp-mode-compose .cmp-inspector--glass hr,
+.cmp-mode-compile .cmp-inspector--glass hr { border-color: var(--cmp-chrome-menu-line); }
+.cmp-mode-compose .cmp-inspector--glass input,
+.cmp-mode-compose .cmp-inspector--glass select,
+.cmp-mode-compile .cmp-inspector--glass input,
+.cmp-mode-compile .cmp-inspector--glass select {
+  border-color: var(--cmp-chrome-input-border) !important;
+  background: var(--cmp-chrome-input-bg) !important;
+  color: var(--cmp-chrome-text) !important;
+}
+.cmp-mode-compose .cmp-inspector--glass .cmp-contract,
+.cmp-mode-compile .cmp-inspector--glass .cmp-contract {
+  border-color: var(--cmp-chrome-border);
+  background: var(--cmp-chrome-btn-bg);
+}
+.cmp-mode-compose .cmp-inspector--glass a,
+.cmp-mode-compile .cmp-inspector--glass a { color: var(--cmp-chrome-link); }
+.cmp-mode-compose .cmp-inspector--glass button,
+.cmp-mode-compile .cmp-inspector--glass button {
+  border-color: var(--cmp-chrome-btn-border);
+  background: var(--cmp-chrome-btn-bg);
+  color: var(--cmp-chrome-text);
+}
+.cmp-mode-compose .cmp-inspector--glass .cmp-check-btn,
+.cmp-mode-compose .cmp-inspector--glass .cmp-inspector-timeline button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  gap: 8px;
+  align-items: baseline;
+  margin: 4px 0;
+  padding: 8px 9px !important;
+  font-size: 11px;
+}
+.cmp-mode-compose .cmp-inspector--glass .cmp-inspector-timeline code {
+  width: 48px;
+  flex-shrink: 0;
+  color: var(--cmp-chrome-subtle);
+}
+.cmp-mode-compose .cmp-inspector--glass .cmp-inspector-timeline strong {
+  min-width: 0;
+  font-weight: 600;
+}
+.cmp-inspector-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 -16px 14px;
+  padding: 10px 10px 10px 16px;
+  border-bottom: 1px solid var(--cmp-inspector-hairline, transparent);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.cmp-inspector-collapse {
+  display: inline-grid !important;
+  place-items: center;
+  width: 30px !important;
+  height: 30px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--cmp-chrome-muted) !important;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cmp-inspector-collapse:hover {
+  color: var(--cmp-chrome-text) !important;
+  background: color-mix(in srgb, var(--cmp-chrome-text) 8%, transparent) !important;
+  border-color: transparent !important;
+}
+.cmp-inspector-reopen {
+  --cmp-inspector-glass: color-mix(in srgb, #0a0c10 34%, transparent);
+  --cmp-inspector-hairline: color-mix(in srgb, #fff 5%, transparent);
+  --cmp-inspector-blur: blur(22px) saturate(160%);
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 36;
+  display: inline-grid !important;
+  place-items: center;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--cmp-inspector-hairline) !important;
+  background: var(--cmp-inspector-glass) !important;
+  backdrop-filter: var(--cmp-inspector-blur);
+  -webkit-backdrop-filter: var(--cmp-inspector-blur);
+  color: var(--cmp-chrome-text) !important;
+  box-shadow: 0 8px 24px rgba(8, 10, 14, 0.1);
+  cursor: pointer;
+}
+[data-theme="light"] .cmp-inspector-reopen {
+  --cmp-inspector-glass: color-mix(in srgb, var(--c-bg, #f4f6f5) 36%, transparent);
+  --cmp-inspector-hairline: color-mix(in srgb, var(--c-ink, #161c1a) 5%, transparent);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .cmp-inspector-reopen {
+    --cmp-inspector-glass: color-mix(in srgb, var(--c-bg, #f4f6f5) 36%, transparent);
+    --cmp-inspector-hairline: color-mix(in srgb, var(--c-ink, #161c1a) 5%, transparent);
+  }
+}
+.cmp-inspector-reopen:hover {
+  background: color-mix(in srgb, var(--cmp-inspector-glass) 70%, transparent) !important;
+  border-color: transparent !important;
+}
+
+@media (max-width: 900px) {
+  .cmp-mode-compose .cmp-workspace,
+  .cmp-mode-compile .cmp-workspace { grid-template-columns: minmax(0, 1fr); }
+  .cmp-mode-compose .cmp-inspector--glass {
+    grid-column: auto;
+    width: min(20rem, calc(100% - 24px));
+    bottom: 6.5rem;
+    margin: 0;
+    max-height: none;
+  }
+  .cmp-mode-compile .cmp-inspector--glass { margin: 0 12px 12px; max-height: none; }
+  .cmp-compile-filename { width: 7.5rem; }
+}
