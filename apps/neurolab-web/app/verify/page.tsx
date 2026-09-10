@@ -1,5 +1,6 @@
 "use client";
 import {Shell} from "@/components/Shell";
+import {VerifyShelf} from "@/components/VerifyShelf";
 import Link from "next/link";
 import {useEffect,useRef,useState} from "react";
 import {verifyArtifact,verifyBrowserEvidence,signedReplayReport,captureEvidence,type VerificationReport,type BrowserEvidence,verifyStackEvidence} from "@/lib/verification";
@@ -35,7 +36,9 @@ export default function VerifyPage(){
  }
  const canRun=mode==="artifact"?!!artifact:mode==="browser"?!!evidence&&(evidence.format!=="synapsevm.stack-replay.v1"||!!artifact):!!receipt;
  return <Shell wide><div className="vf">
- <header className="vf-header"><div><span className="vf-kicker">EVIDENCE WORKSPACE</span><h1>Know what was checked.</h1><p>Inspect the artifact. Reproduce the execution. Follow each claim from source to action.</p></div><Link href="/simulate" className="vf-link">Generate an event in Sim Lab ↗</Link></header>
+ <header className="vf-header"><div><span className="vf-kicker">EVIDENCE WORKSPACE</span><h1>Know what was checked.</h1><p>Inspect the artifact. Reproduce the execution. Follow each claim from source to action.</p></div><Link href="/verify/simulate" className="vf-simulate">Simulate</Link></header>
+ <VerifyShelf/>
+ <div className="vf-section-heading" style={{marginBottom:14}}><span className="vf-kicker">CHECK SOMETHING ELSE</span><span>Artifact, local replay or signed receipt</span></div>
  <nav className="vf-modes" aria-label="Verification mode">{([["artifact","01","Artifact","Check downloaded software"],["browser","02","Local replay","Reproduce captured neural execution"],["signed","03","Signed receipt","Replay with the local Rust verifier"]] as const).map(([id,num,title,desc])=><button key={id} aria-pressed={mode===id} onClick={()=>changeMode(id)}><span>{num}</span><div><strong>{title}</strong><small>{desc}</small></div></button>)}</nav>
  <div className="vf-layout"><section className="vf-input"><div className="vf-section-heading"><span className="vf-kicker">PROVIDE EVIDENCE</span><span>Local verification</span></div>
  {mode==="artifact"&&<><h2>Which software are you checking?</h2><p>Upload a NeuroStack source package or a Block model. Compare its bytes with an expected digest when you have one.</p><label className="vf-upload"><b>Choose .synapse or block.json</b><span>{filename||"Maximum 20 MB; Block models up to 4 MB"}</span><input type="file" accept=".synapse,.json" aria-label="Upload artifact" onChange={e=>{void upload(e.target.files?.[0],"artifact");e.target.value="";}}/></label><label>Expected package SHA-256 <span>optional</span><input aria-label="Expected package hash" placeholder="sha256:…" value={expected} onChange={e=>{clear();setExpected(e.target.value);}}/></label><div className="vf-note">Without an expected digest, the report distinguishes a computed identity from a match to trusted bytes.</div></>}
