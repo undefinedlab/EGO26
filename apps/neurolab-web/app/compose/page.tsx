@@ -1,3 +1,4 @@
+import "./compose.css";
 import { ComposeStudio } from "@/components/ComposeStudio";
 import { Shell } from "@/components/Shell";
 

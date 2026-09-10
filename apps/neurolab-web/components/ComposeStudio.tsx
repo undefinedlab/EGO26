@@ -1,999 +1,132 @@
 "use client";
-
 import Link from "next/link";
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import { biopilotArbiter, ComposeError, PORTS, wire, type PortType } from "@/lib/biopilot";
-
-import { compileStack, importPackage, deploymentBundle, canonical, digest, validateGraph, NODE_DEFS, type StackGraph, type SourcePackage } from "@/lib/stackCompiler";
-
-type Edge = { from: string; to: string; kind?: "data" | "override" };
-
-type CanvasNode = {
-  id: string;
-  label: string;
-  blurb: string;
-  tone: "nominal" | "safety" | "arbiter";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-};
-
-type ChatMsg = { id: string; role: "user" | "assistant"; content: string };
-
-const INITIAL_NODES: CanvasNode[] = [
-  { id: "EventCamera", label: "EventCamera", blurb: "200 Hz · EventVision/v1", tone: "nominal", x: -180, y: 100, w: 180, h: 88 },
-  { id: "IMU", label: "IMU", blurb: "200 Hz · HeadingDelta/v1", tone: "nominal", x: -180, y: 260, w: 180, h: 88 },
-  { id: "DroneControl", label: "DroneControl", blurb: "Final actuator command", tone: "arbiter", x: 900, y: 250, w: 180, h: 88 },
-  { id: "TargetTrack", label: "TargetTrack", blurb: "Select + track", tone: "nominal", x: 72, y: 88, w: 168, h: 88 },
-  { id: "FlowSense", label: "FlowSense", blurb: "Optic / ego-motion", tone: "nominal", x: 72, y: 220, w: 168, h: 88 },
-  { id: "LoomGuard", label: "LoomGuard", blurb: "Safety reflex", tone: "safety", x: 72, y: 360, w: 168, h: 88 },
-  { id: "HeadingCell", label: "HeadingCell", blurb: "Heading + steer", tone: "nominal", x: 360, y: 180, w: 176, h: 96 },
-  { id: "Arbiter", label: "Arbiter", blurb: "Priority merge", tone: "arbiter", x: 640, y: 250, w: 176, h: 96 },
-];
-
-const DEFAULT_EDGES: Edge[] = [
-  { from: "EventCamera.events", to: "LoomGuard.event_vision", kind: "data" },
-  { from: "EventCamera.events", to: "FlowSense.event_vision", kind: "data" },
-  { from: "EventCamera.events", to: "TargetTrack.event_vision", kind: "data" },
-  { from: "IMU.heading", to: "HeadingCell.heading_delta", kind: "data" },
-  { from: "Arbiter.command", to: "DroneControl.control", kind: "data" },
-  { from: "FlowSense.optic_flow", to: "HeadingCell.optic_flow", kind: "data" },
-  { from: "TargetTrack.target_bearing", to: "HeadingCell.target_bearing", kind: "data" },
-  { from: "HeadingCell.steering_command", to: "Arbiter.nominal", kind: "data" },
-  { from: "LoomGuard.avoidance_vector", to: "Arbiter.override", kind: "override" },
-];
-
-const LEGAL_WIRES: { from: [string, PortType]; to: [string, PortType] }[] = [
-  { from: ["FlowSense", "optic_flow"], to: ["HeadingCell", "optic_flow"] },
-  { from: ["TargetTrack", "target_bearing"], to: ["HeadingCell", "target_bearing"] },
-];
-
-const PALETTE = [
-  { id: "LoomGuard", tone: "safety" as const, blurb: "Looming hard override", short: "Loom" },
-  { id: "FlowSense", tone: "nominal" as const, blurb: "Self-motion estimate", short: "Flow" },
-  { id: "HeadingCell", tone: "nominal" as const, blurb: "Heading + steer", short: "Heading" },
-  { id: "TargetTrack", tone: "nominal" as const, blurb: "Small-target lock", short: "Track" },
-  { id: "Arbiter", tone: "arbiter" as const, blurb: "Priority-aware merge", short: "Arbiter" },
-];
-
-const CHAT_SUGGESTIONS = [
-  { label: "Wire LoomGuard", text: "How should I wire LoomGuard into the Arbiter?" },
-  { label: "Priorities", text: "Explain BioPilot priority rules for hard override" },
-  { label: "Illegal wire", text: "Show me an illegal port connection example" },
-  { label: "Add FlowSense", text: "Add FlowSense and connect optic_flow to HeadingCell" },
-  { label: "Sim Lab", text: "What should I test first in Sim Lab?" },
-];
-
-function portAnchor(nodes: CanvasNode[], block: string, side: "out" | "in") {
-  const n = nodes.find((x) => x.id === block);
-  if (!n) return { x: 0, y: 0 };
-  return {
-    x: side === "out" ? n.x + n.w : n.x,
-    y: n.y + n.h / 2,
-  };
+import dynamic from "next/dynamic";
+import {useEffect,useMemo,useRef,useState,type PointerEvent} from "react";
+import {DEFINITIONS,RATES,template,paramsFor,checkGraph,connectionProblem,suggestAdapter,buildStack,importStack,canonical,digest,moduleKey,type ComposeGraph,type ComposeNode,type ComposePackage} from "@/lib/composeCompiler";
+import {loadCompiledStack,replayStack,scenarioInput,type CompiledStack,type RuntimeEvent,type ReplayBundle,type Inputs} from "@/lib/composeRuntime";
+import type {LibraryItem} from "@/lib/library";
+import {ComposeAssistant} from "./ComposeAssistant";
+import {DRAFT_KEY,BUILD_KEY,draftFingerprint,restoreBuild,canComposeBlock} from "@/lib/workflow";
+const World=dynamic(()=>import("./ComposeWorld").then(m=>m.ComposeWorld),{ssr:false,loading:()=> <p>Loading command preview…</p>});
+type Position={x:number;y:number};
+type Draft={graph:ComposeGraph;positions:Record<string,Position>;modules:Record<string,string>};
+const KEY=DRAFT_KEY,families=["sensor","adapter","neuroblock","control","state","actuator"];
+const short=(s:string)=>s.length>20?s.slice(0,13)+"…"+s.slice(-5):s;
+function layout(g:ComposeGraph):Record<string,Position>{
+ const levels=new Map<string,number>();const ordered=checkGraph(g).order;for(const id of [...ordered,...g.nodes.map(n=>n.id).filter(id=>!ordered.includes(id))]){const n=g.nodes.find(n=>n.id===id)!;const parents=n.type==="PreviousValue"?[]:g.edges.filter(e=>e.to.startsWith(id+".")).map(e=>e.from.split(".")[0]);levels.set(id,Math.max(0,...parents.map(id=>(levels.get(id)??-1)+1)));}
+ const count:Record<number,number>={};return Object.fromEntries(g.nodes.map(n=>{const level=levels.get(n.id)??0,row=count[level]??0;count[level]=row+1;return [n.id,{x:40+level*285,y:50+row*250}];}));
 }
-
-function edgePath(a: { x: number; y: number }, b: { x: number; y: number }) {
-  const dx = Math.max(48, Math.abs(b.x - a.x) * 0.45);
-  return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+function checkedDraft(value:unknown):Draft {
+ const v=value as Draft;const c=checkGraph(v?.graph);if(c.errors.some(e=>["GRAPH","NODE","LIMIT","PARAMETER","MODULE","EDGE"].includes(e.code))||typeof v.graph.name!=="string"||typeof v.graph.version!=="string")throw Error("Unsupported draft structure.");
+ const fallback=layout(v.graph),positions=Object.fromEntries(v.graph.nodes.map(n=>{const p=v.positions?.[n.id];return [n.id,p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<100000&&Math.abs(p.y)<100000?p:fallback[n.id]];}));
+ if(!v.modules||typeof v.modules!=="object"||Array.isArray(v.modules)||Object.values(v.modules).some(raw=>typeof raw!=="string"||raw.length>4000000))throw Error("Invalid draft modules.");
+ return {graph:v.graph,positions,modules:v.modules};
 }
+function initial():Draft{const graph=template();return {graph,positions:layout(graph),modules:{}};}
+function download(name:string,raw:string,mime="application/json"){const url=URL.createObjectURL(new Blob([raw],{type:mime}));const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export function ComposeStudio({mode="compose"}:{mode?:"compose"|"compile"|"simulate"}){
+ const [release,setRelease]=useState<{item:LibraryItem;raw:string}|null>(null);
+ const [draft,setDraft]=useState<Draft>(initial),[ready,setReady]=useState(false),[status,setStatus]=useState(""),[error,setError]=useState(""),[selected,setSelected]=useState("LoomGuard"),[edgeIndex,setEdgeIndex]=useState<number|null>(null),[pending,setPending]=useState(""),[search,setSearch]=useState(""),[tab,setTab]=useState<"inspect"|"build"|"run">("inspect");
+ const [adapterOffer,setAdapterOffer]=useState<{from:string;to:string;types:string[]}|null>(null);
+ const [past,setPast]=useState<Draft[]>([]),[future,setFuture]=useState<Draft[]>([]),[pan,setPan]=useState({x:0,y:0}),[zoom,setZoom]=useState(.7),[busy,setBusy]=useState(false),[built,setBuilt]=useState<{pkg:ComposePackage;fingerprint:string;hash:string}|null>(null),[library,setLibrary]=useState<LibraryItem[]>([]);
+ const [running,setRunning]=useState(false),[obstacle,setObstacle]=useState(false),[actions,setActions]=useState<Inputs>({}),[events,setEvents]=useState<RuntimeEvent[]>([]),[event,setEvent]=useState<RuntimeEvent|null>(null),[replay,setReplay]=useState<ReplayBundle|null>(null),[replayResult,setReplayResult]=useState(""),[tick,setTick]=useState(0);
+ const stage=useRef<HTMLDivElement>(null),drag=useRef<{id:string;px:number;py:number;x:number;y:number;original:Draft}|null>(null),panDrag=useRef<{px:number;py:number;x:number;y:number}|null>(null),runtime=useRef<CompiledStack|null>(null),stepping=useRef(false),generation=useRef(0);
+ const {graph,positions,modules}=draft;const draftRef=useRef(draft);draftRef.current=draft;const fingerprint=draftFingerprint(draft),fingerRef=useRef(fingerprint);fingerRef.current=fingerprint;
+ const active=built?.fingerprint===fingerprint?built:null;
+ const validation=useMemo(()=>checkGraph(graph),[graph]),node=graph.nodes.find(n=>n.id===selected),nodeDef=node?DEFINITIONS[node.type]:null;
+ const edge=edgeIndex===null?null:graph.edges[edgeIndex];
+ function persistDraft(next:Draft){try{localStorage.setItem(KEY,JSON.stringify(next));}catch{setStatus("Browser storage full. Download your draft to keep it.");}}
+ function commit(next:Draft){setPast(p=>[...p.slice(-29),draftRef.current]);setFuture([]);setDraft(next);persistDraft(next);setError("");setPending("");setAdapterOffer(null);}
+ function updateGraph(g:ComposeGraph){commit({...draftRef.current,graph:g});}
+ // A synthesised graph replaces the draft wholesale; it arrives already checked by checkGraph.
+ function applyPlan(g:ComposeGraph){const positions=layout(g);commit({...draftRef.current,graph:g,positions});setSelected(g.nodes[0]?.id??"");setEdgeIndex(null);setTab("inspect");setStatus("Placed a synthesised graph. Review it before compiling.");fit(positions);}
+ function undo(){if(!past.length)return;setFuture(f=>[draftRef.current,...f]);setDraft(past[past.length-1]);persistDraft(past[past.length-1]);setPast(p=>p.slice(0,-1));setPending("");}
+ function redo(){if(!future.length)return;setPast(p=>[...p,draftRef.current]);setDraft(future[0]);persistDraft(future[0]);setFuture(f=>f.slice(1));setPending("");}
+ function fit(pos=positions){const box=stage.current;if(!box||!Object.keys(pos).length)return;const ps=Object.values(pos),minX=Math.min(...ps.map(p=>p.x)),minY=Math.min(...ps.map(p=>p.y)),w=Math.max(...ps.map(p=>p.x+235))-minX,h=Math.max(...ps.map(p=>p.y+220))-minY;const z=Math.min(1,Math.max(.2,Math.min((box.clientWidth-60)/w,(box.clientHeight-60)/h)));setZoom(z);setPan({x:(box.clientWidth-w*z)/2-minX*z,y:(box.clientHeight-h*z)/2-minY*z});}
+ useEffect(()=>{let cancelled=false;void(async()=>{try{const raw=localStorage.getItem(KEY),saved=raw?checkedDraft(JSON.parse(raw)):initial();setDraft(saved);setStatus(raw?"Restored local draft":"Collision Shield starter graph");const stored=localStorage.getItem(BUILD_KEY);if(stored){try{const build=await restoreBuild(stored,draftFingerprint(saved));if(!cancelled)setBuilt(build);}catch(e){if(!cancelled)setStatus(String(e));}}}catch(e){if(!cancelled)setError("Draft could not be restored: "+String(e));}finally{if(!cancelled)setReady(true);}})();return()=>{cancelled=true;};},[]);
+ useEffect(()=>{setTab(mode==="compile"?"build":mode==="simulate"?"run":"inspect");},[mode]);
+ useEffect(()=>{const changed=(e:StorageEvent)=>{if(e.key===KEY||e.key===BUILD_KEY){generation.current++;runtime.current=null;setRunning(false);setBuilt(null);setReplay(null);setActions({});setEvents([]);setError("The workflow changed in another tab. Reload this page to load the current draft and compiled package.");}};window.addEventListener("storage",changed);return()=>window.removeEventListener("storage",changed);},[]);
+ function go(path:string){if(!ready)return;try{localStorage.setItem(KEY,JSON.stringify(draftRef.current));window.location.assign(path);}catch{setError("Browser storage unavailable. Save your draft before leaving this page.");}}
+ function saveBuild(record:{pkg:ComposePackage;fingerprint:string;hash:string},source:Draft){localStorage.setItem(KEY,JSON.stringify(source));localStorage.setItem(BUILD_KEY,JSON.stringify(record));setBuilt(record);}
 
-function chatReply(prompt: string, nodeIds: string[]): string {
-  const q = prompt.toLowerCase();
-  if (q.includes("illegal")) {
-    return "Illegal example: LoomGuard.avoidance_vector → HeadingCell.steering_command.\nTyped ports reject that — avoidance_vector is not a HeadingCell input. Use Arbiter.override instead.";
-  }
-  if (q.includes("priority") || q.includes("arbiter") || q.includes("override")) {
-    return "BioPilot arbiter:\n1) LoomGuard.trigger → emergency_avoidance (p100)\n2) TargetTrack.visible → HeadingCell.steer (p50)\n3) else → maintain_heading (p10)\nSafety never shares priority with nominal control.";
-  }
-  if (q.includes("loom")) {
-    return "Wire LoomGuard.avoidance_vector → Arbiter.override (hard override).\nDo not splice LoomGuard into HeadingCell — that breaks typed ports and the safety contract.";
-  }
-  if (q.includes("flow")) {
-    return nodeIds.includes("FlowSense")
-      ? "FlowSense is on the canvas. Legal wire: FlowSense.optic_flow → HeadingCell.optic_flow."
-      : "Click + Flow in the top bar to place FlowSense, then wire optic_flow → HeadingCell.optic_flow.";
-  }
-  if (q.includes("sim")) {
-    return "Open Sim Lab and run Saw blade e-stop or Urban emergency brake — both show LoomGuard hard-freeze on trigger, then Inspect WHY.";
-  }
-  if (q.includes("wire") || q.includes("connect")) {
-    return "Use typed wires only. Open Add → Wires for a legal link, or Illegal wire to see SVM-COMP-001 rejection.";
-  }
-  return "I can help wire NeuroBlocks, explain arbiter priorities, or catch illegal ports. Try a suggestion chip, or ask about LoomGuard / FlowSense / HeadingCell.";
-}
-
-function IconFolder() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-function IconSave() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <polyline points="17 21 17 13 7 13 7 21" />
-      <polyline points="7 3 7 8 15 8" />
-    </svg>
-  );
-}
-function IconPlay() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  );
-}
-function IconReset() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
-  );
-}
-function IconPlus() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-function IconChevron() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-function IconSend() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 2L11 13" />
-      <path d="M22 2l-7 20-4-9-9-4 20-7z" />
-    </svg>
-  );
-}
-
-export function ComposeStudio() {
-  const [compiled, setCompiled] = useState<SourcePackage | null>(null);
-  const [packageHash, setPackageHash] = useState("");
-  const [compileBusy, setCompileBusy] = useState(false);
-  const [cameraHz, setCameraHz] = useState(200);
-  const [deadlineMs, setDeadlineMs] = useState(10);
-  const importRef = useRef<HTMLInputElement>(null);
-  const [nodes, setNodes] = useState<CanvasNode[]>(INITIAL_NODES);
-  const [edges, setEdges] = useState<Edge[]>(DEFAULT_EDGES);
-  const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState("LoomGuard");
-  const [loomTrigger, setLoomTrigger] = useState(false);
-  const [trackVisible, setTrackVisible] = useState(true);
-  const [avoidX, setAvoidX] = useState(-0.82);
-  const [headingSteer, setHeadingSteer] = useState(0.35);
-  const [rightOpen, setRightOpen] = useState(true);
-  const [stackName, setStackName] = useState("BioPilot@1.0.0");
-  const [savedFlash, setSavedFlash] = useState(false);
-  const [menuOpen, setMenuOpen] = useState<null | "add" | "file">(null);
-  const [pan, setPan] = useState({ x: 170, y: 100 });
-  const [zoom, setZoom] = useState(0.65);
-  const [chatInput, setChatInput] = useState("");
-  const [chatBusy, setChatBusy] = useState(false);
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
-  const dragRef = useRef<{ id: string; ox: number; oy: number } | null>(null);
-  const panRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
-  const panState = useRef(pan);
-  const zoomState = useRef(zoom);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const threadRef = useRef<HTMLDivElement>(null);
-  const menuBarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    panState.current = pan;
-  }, [pan]);
-  useEffect(() => {
-    zoomState.current = zoom;
-  }, [zoom]);
-
-  const decision = useMemo(
-    () =>
-      biopilotArbiter({
-        loomTrigger,
-        avoidX,
-        trackVisible,
-        headingSteer,
-      }),
-    [loomTrigger, trackVisible, avoidX, headingSteer],
-  );
-
-  const selectedPorts = PORTS[selected];
-  const graph = useMemo<StackGraph>(() => {
-    const [name, version] = stackName.split("@");
-    return { name, version: version ?? "1.0.0", deadlineMs,
-      nodes: nodes.map(n => ({ id:n.id, type:n.id, ...(NODE_DEFS[n.id]?.family === "sensor" ? {params:{hz:cameraHz}} : {}) })),
-      edges: edges.map(e => ({from:e.from,to:e.to,mode:"LATEST" as const})) };
-  }, [nodes,edges,stackName,cameraHz,deadlineMs]);
-  const graphRef = useRef(graph);
-  graphRef.current = graph;
-  const validation = useMemo(() => validateGraph(graph), [graph]);
-  useEffect(() => { setCompiled(null); setPackageHash(""); }, [graph]);
-  const download = (name: string, raw: string) => {
-    const url = URL.createObjectURL(new Blob([raw], {type:"application/json"}));
-    const a = document.createElement("a"); a.href=url; a.download=name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-  const compile = async () => {
-    setCompileBusy(true); setError(null);
-    try {
-      const pkg = await compileStack(graph, async slug => {
-        const res = await fetch("/blocks/" + slug + "/1.0.0/block.json");
-        if (!res.ok) throw new Error("Module unavailable: " + slug);
-        return res.text();
-      });
-      const hash=await digest(canonical(pkg));
-      if(graphRef.current !== graph) return;
-      setCompiled(pkg); setPackageHash(hash);
-    } catch(e) { setError(e instanceof Error ? e.message : String(e)); }
-    finally { setCompileBusy(false); }
-  };
-  const applyGraph = (g: StackGraph) => {
-    const checked=validateGraph(g); if(checked.errors.length) throw new Error(checked.errors.map(e=>e.message).join("\n"));
-    if(g.nodes.some(n=>n.id!==n.type)) throw new Error("This canvas currently supports one instance per node type");
-    const sensorRates=g.nodes.filter(n=>NODE_DEFS[n.type]?.family==="sensor").map(n=>n.params?.hz??200);
-    if(new Set(sensorRates).size>1) throw new Error("This canvas currently requires a common sensor rate");
-    setNodes(g.nodes.map(n=>INITIAL_NODES.find(x=>x.id===n.id)!));
-    setEdges(g.edges.map(e=>({...e,kind:e.to.endsWith(".override")?"override":"data"})));
-    setStackName(g.name+"@"+g.version); setCameraHz(sensorRates[0]??200);setDeadlineMs(g.deadlineMs);
-  };
-  const loadSaved = () => {
-    try { const raw=localStorage.getItem("synapsevm.workbench.v1");if(!raw) throw new Error("No saved Stack in this browser");applyGraph(JSON.parse(raw));setError(null); }
-    catch(e){setError(e instanceof Error?e.message:String(e));}
-  };
-  const importFile = async (file?: File) => {
-    if(!file)return;
-    try {if(file.size>20_000_000)throw new Error("Package exceeds 20 MB");const pkg=await importPackage(await file.text());applyGraph(pkg.graph);setError(null);}
-    catch(e){setError(e instanceof Error?e.message:String(e));}
-  };
-
-  const priorityRows = [
-    { if: "LoomGuard.trigger", out: "emergency_avoidance", p: 100, active: loomTrigger },
-    { if: "TargetTrack.visible", out: "HeadingCell.steer", p: 50, active: !loomTrigger && trackVisible },
-    { if: "else", out: "maintain_heading", p: 10, active: !loomTrigger && !trackVisible },
-  ];
-
-  const wireGeometry = useMemo(() => {
-    return edges.map((e) => {
-      const fromBlock = e.from.split(".")[0];
-      const toBlock = e.to.split(".")[0];
-      const a = portAnchor(nodes, fromBlock, "out");
-      const b = portAnchor(nodes, toBlock, "in");
-      return { ...e, d: edgePath(a, b) };
-    });
-  }, [edges, nodes]);
-
-  const focusNode = useCallback(
-    (id: string) => {
-      setSelected(id);
-      const n = nodes.find((x) => x.id === id);
-      if (!n || !stageRef.current) return;
-      const rect = stageRef.current.getBoundingClientRect();
-      const z = zoomState.current;
-      setPan({
-        x: rect.width / 2 - (n.x + n.w / 2) * z,
-        y: rect.height / 2 - (n.y + n.h / 2) * z,
-      });
-    },
-    [nodes],
-  );
-
-  const addBlock = useCallback(
-    (id: string) => {
-      const meta = PALETTE.find((p) => p.id === id);
-      if (!meta) return;
-      setMenuOpen(null);
-      setNodes((prev) => {
-        const existing = prev.find((n) => n.id === id);
-        if (existing) {
-          queueMicrotask(() => focusNode(id));
-          return prev;
-        }
-        const offset = prev.length * 28;
-        const next: CanvasNode = {
-          id,
-          label: id,
-          blurb: meta.blurb,
-          tone: meta.tone,
-          x: 120 + offset,
-          y: 140 + offset,
-          w: id === "Arbiter" || id === "HeadingCell" ? 176 : 168,
-          h: id === "Arbiter" || id === "HeadingCell" ? 96 : 88,
-        };
-        queueMicrotask(() => {
-          setSelected(id);
-        });
-        return [...prev, next];
-      });
-    },
-    [focusNode],
-  );
-
-  const onNodePointerDown = (id: string, ev: ReactPointerEvent) => {
-    ev.stopPropagation();
-    ev.currentTarget.setPointerCapture(ev.pointerId);
-    const n = nodes.find((x) => x.id === id);
-    if (!n) return;
-    const z = zoomState.current;
-    const p = panState.current;
-    dragRef.current = {
-      id,
-      ox: (ev.clientX - p.x) / z - n.x,
-      oy: (ev.clientY - p.y) / z - n.y,
-    };
-    setSelected(id);
-  };
-
-  const onNodePointerMove = (ev: ReactPointerEvent) => {
-    if (!dragRef.current) return;
-    const { id, ox, oy } = dragRef.current;
-    const z = zoomState.current;
-    const p = panState.current;
-    const nx = (ev.clientX - p.x) / z - ox;
-    const ny = (ev.clientY - p.y) / z - oy;
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x: nx, y: ny } : n)));
-  };
-
-  const onNodePointerUp = (ev: ReactPointerEvent) => {
-    dragRef.current = null;
-    try {
-      ev.currentTarget.releasePointerCapture(ev.pointerId);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const onStagePointerDown = (ev: ReactPointerEvent) => {
-    if (dragRef.current) return;
-    const t = ev.target as HTMLElement;
-    if (t.closest(".compose-flow-node")) return;
-    panRef.current = { x: pan.x, y: pan.y, px: ev.clientX, py: ev.clientY };
-    ev.currentTarget.setPointerCapture(ev.pointerId);
-  };
-
-  const onStagePointerMove = (ev: ReactPointerEvent) => {
-    if (!panRef.current) return;
-    setPan({
-      x: panRef.current.x + (ev.clientX - panRef.current.px),
-      y: panRef.current.y + (ev.clientY - panRef.current.py),
-    });
-  };
-
-  const onStagePointerUp = (ev: ReactPointerEvent) => {
-    panRef.current = null;
-    try {
-      ev.currentTarget.releasePointerCapture(ev.pointerId);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const onNativeWheel = (ev: WheelEvent) => {
-      ev.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const mx = ev.clientX - rect.left;
-      const my = ev.clientY - rect.top;
-      const prev = zoomState.current;
-      const factor = ev.deltaY > 0 ? 0.9 : 1.1;
-      const next = Math.min(2.5, Math.max(0.35, prev * factor));
-      if (next === prev) return;
-      const worldX = (mx - panState.current.x) / prev;
-      const worldY = (my - panState.current.y) / prev;
-      setZoom(next);
-      setPan({
-        x: mx - worldX * next,
-        y: my - worldY * next,
-      });
-    };
-    el.addEventListener("wheel", onNativeWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onNativeWheel);
-  }, []);
-
-  const addLegal = (idx = 0) => {
-    try {
-      const w = LEGAL_WIRES[idx % LEGAL_WIRES.length];
-      const e = wire(w.from[0], w.from[1], w.to[0], w.to[1]);
-      setEdges((prev) =>
-        prev.some((x) => x.from === e.from && x.to === e.to) ? prev : [...prev, { ...e, kind: "data" }],
-      );
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const addIllegal = () => {
-    try {
-      wire("LoomGuard", "avoidance_vector", "HeadingCell", "steering_command");
-      setError(null);
-    } catch (err) {
-      setError(err instanceof ComposeError || err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const resetStack = () => {
-    setNodes(INITIAL_NODES);
-    setEdges(DEFAULT_EDGES);
-    setError(null);
-    setLoomTrigger(false);
-    setTrackVisible(true);
-    setPan({ x: 170, y: 100 });
-    setZoom(0.65);
-  };
-
-  const saveStack = () => {
-    try { localStorage.setItem("synapsevm.workbench.v1", JSON.stringify(graph)); setError(null); }
-    catch(e) {setError("Could not save Stack: " + String(e)); return;}
-    setSavedFlash(true);
-    window.setTimeout(() => setSavedFlash(false), 1600);
-  };
-
-  const submitChat = async (raw?: string) => {
-    const text = (raw ?? chatInput).trim();
-    if (!text || chatBusy) return;
-    const userMsg: ChatMsg = { id: `u-${Date.now()}`, role: "user", content: text };
-    setMessages((m) => [...m, userMsg]);
-    setChatInput("");
-    setChatBusy(true);
-    await new Promise((r) => setTimeout(r, 450));
-    const reply = chatReply(text, nodes.map((n) => n.id));
-    if (text.toLowerCase().includes("add flowsense")) addBlock("FlowSense");
-    setMessages((m) => [...m, { id: `a-${Date.now()}`, role: "assistant", content: reply }]);
-    setChatBusy(false);
-  };
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setError(null);
-        setMenuOpen(null);
-      }
-    };
-    const onDoc = (e: MouseEvent) => {
-      if (!menuBarRef.current?.contains(e.target as Node)) setMenuOpen(null);
-    };
-    window.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onDoc);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onDoc);
-    };
-  }, []);
-
-  useEffect(() => {
-    const el = threadRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages, chatBusy]);
-
-  const onChatSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void submitChat();
-  };
-
-  return (
-    <div className="compose-studio">
-      <div className="compose-main">
-        <section className="compose-stage-wrap">
-          {/* Siphon-style mid top bar (light) */}
-          <div className="compose-top-bar compose-top-bar--visible" role="toolbar" aria-label="Compose actions">
-            <div className="compose-toolbar-end" ref={menuBarRef}>
-              <div className="compose-file-group">
-                <input
-                  type="text"
-                  className="compose-file-name"
-                  value={stackName}
-                  onChange={(e) => setStackName(e.target.value)}
-                  spellCheck={false}
-                  aria-label="Stack name"
-                />
-              </div>
-
-              <span className="compose-tb-sep" aria-hidden />
-
-              <div className="compose-menu-anchor">
-                <button
-                  type="button"
-                  className={`compose-tb-btn compose-tb-btn--menu ${menuOpen === "add" ? "is-active" : ""}`}
-                  onClick={() => setMenuOpen((m) => (m === "add" ? null : "add"))}
-                  aria-expanded={menuOpen === "add"}
-                  aria-haspopup="menu"
-                >
-                  <IconPlus />
-                  <span>Add</span>
-                  <IconChevron />
-                </button>
-                {menuOpen === "add" && (
-                  <div className="compose-add-menu" role="menu" aria-label="Add to canvas">
-                    <div className="compose-add-menu-head">NeuroBlocks</div>
-                    {PALETTE.map((p) => {
-                      const on = nodes.some((n) => n.id === p.id);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          role="menuitem"
-                          className={`compose-add-menu-item ${on ? "is-on" : ""}`}
-                          onClick={() => {
-                            addBlock(p.id);
-                            setMenuOpen(null);
-                          }}
-                        >
-                          <span className={`compose-add-dot tone-${p.tone}`} />
-                          <span className="compose-add-menu-label">{p.id}</span>
-                          {on ? <span className="compose-add-menu-meta">on canvas</span> : null}
-                        </button>
-                      );
-                    })}
-                    <div className="compose-add-menu-head">Wires</div>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="compose-add-menu-item"
-                      onClick={() => {
-                        addLegal(0);
-                        setMenuOpen(null);
-                      }}
-                    >
-                      <span className="compose-add-dot tone-nominal" />
-                      <span className="compose-add-menu-label">Legal wire</span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="compose-add-menu-item"
-                      onClick={() => {
-                        addIllegal();
-                        setMenuOpen(null);
-                      }}
-                    >
-                      <span className="compose-add-dot tone-safety" />
-                      <span className="compose-add-menu-label">Illegal wire</span>
-                      <span className="compose-add-menu-meta">demo</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="compose-menu-anchor">
-                <button
-                  type="button"
-                  className={`compose-tb-btn compose-tb-btn--menu ${menuOpen === "file" ? "is-active" : ""}`}
-                  onClick={() => setMenuOpen((m) => (m === "file" ? null : "file"))}
-                  aria-expanded={menuOpen === "file"}
-                  aria-haspopup="menu"
-                >
-                  <IconFolder />
-                  <span>File</span>
-                  <IconChevron />
-                </button>
-                {menuOpen === "file" && (
-                  <div className="compose-add-menu compose-add-menu--end" role="menu" aria-label="File actions">
-                    <div className="compose-add-menu-head">Stack</div>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="compose-add-menu-item"
-                      onClick={() => {
-                        loadSaved();
-                        setMenuOpen(null);
-                      }}
-                    >
-                      <IconFolder />
-                      <span className="compose-add-menu-label">Load saved</span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className={`compose-add-menu-item ${savedFlash ? "is-on" : ""}`}
-                      onClick={() => {
-                        saveStack();
-                        setMenuOpen(null);
-                      }}
-                      disabled={savedFlash}
-                    >
-                      <IconSave />
-                      <span className="compose-add-menu-label">{savedFlash ? "Saved" : "Save"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="compose-add-menu-item"
-                      onClick={() => {
-                        importRef.current?.click();
-                        setMenuOpen(null);
-                      }}
-                    >
-                      <span className="compose-add-menu-label">Import…</span>
-                    </button>
-                    <div className="compose-add-menu-divider" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="compose-add-menu-item compose-add-menu-item--danger"
-                      onClick={() => {
-                        resetStack();
-                        setMenuOpen(null);
-                      }}
-                    >
-                      <IconReset />
-                      <span className="compose-add-menu-label">Reset canvas</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <input
-                ref={importRef}
-                type="file"
-                accept=".synapse,.json"
-                hidden
-                onChange={(e) => {
-                  void importFile(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-
-              <span className="compose-tb-sep" aria-hidden />
-
-              <button
-                type="button"
-                className="compose-tb-btn compose-tb-btn--run"
-                onClick={compile}
-                disabled={compileBusy}
-              >
-                {compileBusy ? "Compiling…" : "Compile"}
-              </button>
-
-              <Link href="/simulate" className="compose-tb-btn" title="Test in Simulate">
-                <IconPlay />
-                <span>Simulate</span>
-              </Link>
-
-              <button type="button" className="compose-tb-btn" onClick={() => setRightOpen(true)} title="Inspector">
-                Inspect
-              </button>
-            </div>
-          </div>
-
-          <div
-            ref={stageRef}
-            className="compose-stage"
-            onPointerDown={onStagePointerDown}
-            onPointerMove={onStagePointerMove}
-            onPointerUp={onStagePointerUp}
-          >
-            <div className="compose-stage-bg" />
-            <div
-              className="compose-stage-world"
-              style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-            >
-              <svg className="compose-stage-wires" width="1400" height="900">
-                {wireGeometry.map((w) => (
-                  <path
-                    key={`${w.from}->${w.to}`}
-                    d={w.d}
-                    className={w.kind === "override" ? "wire-override" : "wire-data"}
-                    fill="none"
-                  />
-                ))}
-              </svg>
-
-              {nodes.map((n) => (
-                <div
-                  key={n.id}
-                  className={`compose-flow-node tone-${n.tone} ${selected === n.id ? "active" : ""} ${
-                    n.id === "LoomGuard" && loomTrigger ? "firing" : ""
-                  }`}
-                  style={
-                    {
-                      left: n.x,
-                      top: n.y,
-                      width: n.w,
-                      minHeight: n.h,
-                      // Wire anchors are computed at n.h / 2, so the handles are
-                      // pinned to that offset rather than to the rendered height.
-                      "--node-h": `${n.h}px`,
-                    } as CSSProperties
-                  }
-                  role="button" tabIndex={0} aria-label={n.label + " · inspect node"}
-                  onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelected(n.id);setRightOpen(true);}}}
-                  onPointerDown={(e) => onNodePointerDown(n.id, e)}
-                  onPointerMove={onNodePointerMove}
-                  onPointerUp={onNodePointerUp}
-                >
-                  <div className="compose-flow-handle in" />
-                  <div className="compose-flow-kicker">
-                    {NODE_DEFS[n.id]?.family.toUpperCase() ?? "BLOCK"}
-                  </div>
-                  <div className="compose-flow-title">{n.label}</div>
-                  <div className="compose-flow-blurb">{NODE_DEFS[n.id]?.family === "sensor" ? cameraHz + " Hz · " + Object.values(NODE_DEFS[n.id].outputs)[0] : n.blurb}</div>
-                  {n.id === "Arbiter" ? (
-                    <div className="compose-flow-out mono">
-                      {decision.action} · p{decision.priority}
-                    </div>
-                  ) : PORTS[n.id] ? (
-                    <div className="compose-flow-out mono">out · {PORTS[n.id].outputs.join(", ")}</div>
-                  ) : null}
-                  <div className="compose-flow-handle out" />
-                </div>
-              ))}
-            </div>
-
-            <div className="compose-stage-hint mono">
-              scroll to zoom · drag canvas · {Math.round(zoom * 100)}%
-            </div>
-          </div>
-
-          {error && (
-            <div className="compose-toast-error">
-              <pre className="mono">{error}</pre>
-              <button type="button" className="sim-action" onClick={() => setError(null)}>
-                Dismiss
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Bottom LLM chat — siphon-style dock */}
-        <div className={`compose-chat ${messages.length || chatBusy ? "has-thread" : ""}`}>
-          {(messages.length > 0 || chatBusy) && (
-            <div className="compose-chat-thread-wrap">
-              <div ref={threadRef} className="compose-chat-thread" role="log" aria-live="polite">
-                {messages.map((msg) => (
-                  <div key={msg.id} className={`compose-chat-msg compose-chat-msg--${msg.role}`}>
-                    <span className="compose-chat-msg-label">{msg.role === "user" ? "You" : "Composer"}</span>
-                    <p className="compose-chat-msg-text">{msg.content}</p>
-                  </div>
-                ))}
-                {chatBusy && (
-                  <div className="compose-chat-msg compose-chat-msg--assistant">
-                    <span className="compose-chat-msg-label">Composer</span>
-                    <p className="compose-chat-msg-text">Thinking…</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="compose-chat-dock">
-            <div className="compose-chat-marquee" role="region" aria-label="Suggested prompts">
-              <div className="compose-chat-marquee-track">
-                {[0, 1].map((copy) => (
-                  <div key={copy} className="compose-chat-marquee-strip" aria-hidden={copy === 1}>
-                    {CHAT_SUGGESTIONS.map((item, i) => (
-                      <Fragment key={`${copy}-${item.label}`}>
-                        {i > 0 ? <span className="compose-chat-dot">·</span> : null}
-                        <button
-                          type="button"
-                          className="compose-chat-chip"
-                          disabled={chatBusy}
-                          tabIndex={copy === 1 ? -1 : 0}
-                          onClick={() => setChatInput(item.text)}
-                        >
-                          {item.label}
-                        </button>
-                      </Fragment>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <form className="compose-chat-row" onSubmit={onChatSubmit}>
-              <div className="compose-chat-composer">
-                <input
-                  type="text"
-                  className="compose-chat-input"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask about wiring, priorities, or describe a NeuroStack…"
-                  disabled={chatBusy}
-                  aria-label="Compose chat"
-                />
-                <button
-                  type="submit"
-                  className="compose-chat-send"
-                  disabled={!chatInput.trim() || chatBusy}
-                  title="Send"
-                  aria-label="Send"
-                >
-                  <IconSend />
-                </button>
-              </div>
-            </form>
-            <p className="compose-chat-disclaimer">Local wiring guide · scripted suggestions. Compile to check your graph.</p>
-          </div>
-        </div>
-      </div>
-
-      {!rightOpen && (
-        <button type="button" className="compose-rail-tab right" onClick={() => setRightOpen(true)}>
-          Inspect
-        </button>
-      )}
-
-      <aside className={`compose-rail compose-rail-right ${rightOpen ? "open" : "closed"}`}>
-        <div className="compose-rail-head">
-          <div>
-            <div className="why-kicker">Inspector</div>
-            <div className="compose-rail-title">{selected}</div>
-          </div>
-          <button type="button" className="compose-icon-btn" onClick={() => setRightOpen(false)} aria-label="Collapse">
-            ›
-          </button>
-        </div>
-
-        <section className="compose-inspect-card protocol-panel" aria-label="Stack compilation">
-          <div className="why-kicker">Build & export</div>
-          <p className={validation.errors.length ? "protocol-warning" : "protocol-success"}>{validation.errors.length ? validation.errors.length + " validation issues" : "Graph valid · " + graph.nodes.length + " nodes"}</p>
-          <label>Sensor rate (Hz)<input type="number" min="1" max="1000" value={cameraHz} onChange={e=>setCameraHz(Number(e.target.value))}/></label>
-          <label>Deadline (ms)<input type="number" min="1" value={deadlineMs} onChange={e=>setDeadlineMs(Number(e.target.value))}/></label>
-          <p>Estimated critical path: {validation.estimatedCriticalPathMs.toFixed(1)} ms. Not measured on hardware.</p>
-          {validation.errors.map((e,i)=><p className="protocol-warning" key={i}>{e.code}: {e.message}</p>)}
-          {compiled && <div aria-live="polite">
-            <p className="protocol-success">{Object.keys(compiled.lockfile).length} modules locked · source package ready</p>
-            <small>Stack identity</small><p className="mono protocol-hash">{compiled.manifest.stackId}</p>
-            <small>Exact package digest</small><p className="mono protocol-hash">{packageHash}</p>
-            <button className="btn" onClick={()=>download(compiled.manifest.name+"-"+compiled.manifest.version+".synapse",canonical(compiled))}>Export .synapse</button>
-            <button className="btn btn-ghost" onClick={async()=>{try{download("simulator.deployment.json",canonical(await deploymentBundle(compiled,cameraHz)));}catch(e){setError(String(e));}}}>Export deployment config</button>
-          </div>}
-          <p className="muted">Portable source and model data. Composed execution, native bindings, signing, and hardware calibration are not implemented.</p>
-        </section>
-        <section className="compose-inspect-card trust-lane">
-          <div className="why-kicker">Trust lane · after execution</div>
-          <p>Receipt → Local replay → External validation → Anchor</p>
-          <Link href="/verify">Inspect verification availability →</Link>
-        </section>
-        <section className="compose-inspect-card">
-          <div className="why-kicker">Live arbiter</div>
-          <label className="compose-toggle">
-            <input type="checkbox" checked={loomTrigger} onChange={(e) => setLoomTrigger(e.target.checked)} />
-            <span>
-              LoomGuard.trigger <strong>{loomTrigger ? "TRUE" : "false"}</strong>
-            </span>
-          </label>
-          <label className="compose-toggle">
-            <input type="checkbox" checked={trackVisible} onChange={(e) => setTrackVisible(e.target.checked)} />
-            <span>
-              TargetTrack.visible <strong>{trackVisible ? "TRUE" : "false"}</strong>
-            </span>
-          </label>
-          <label className="compose-slider">
-            <span className="mono">avoidX {avoidX.toFixed(2)}</span>
-            <input
-              type="range"
-              min={-1}
-              max={1}
-              step={0.01}
-              value={avoidX}
-              onChange={(e) => setAvoidX(Number(e.target.value))}
-              disabled={!loomTrigger}
-            />
-          </label>
-          <label className="compose-slider">
-            <span className="mono">headingSteer {headingSteer.toFixed(2)}</span>
-            <input
-              type="range"
-              min={-1}
-              max={1}
-              step={0.01}
-              value={headingSteer}
-              onChange={(e) => setHeadingSteer(Number(e.target.value))}
-              disabled={loomTrigger}
-            />
-          </label>
-          <div className={`arbiter-out ${decision.action}`}>
-            <div className="why-kicker" style={{ color: "inherit", opacity: 0.7 }}>
-              Actuator
-            </div>
-            <div className="arbiter-action">{decision.action}</div>
-            <div className="mono" style={{ fontSize: 12, marginTop: 6 }}>
-              priority {decision.priority} · steer {decision.steer.toFixed(3)}
-            </div>
-          </div>
-        </section>
-
-        <section className="compose-inspect-card">
-          <div className="why-kicker">Priority rules</div>
-          <div className="priority-table">
-            {priorityRows.map((r) => (
-              <div key={r.if} className={`priority-row ${r.active ? "active" : ""}`}>
-                <span className="mono">if {r.if}</span>
-                <span className="mono">→ {r.out}</span>
-                <span className="mono">p{r.p}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="compose-inspect-card">
-          <div className="why-kicker">Ports · {selected}</div>
-          {selected === "Arbiter" ? (
-            <div className="port-lists">
-              <div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Inputs
-                </div>
-                <div className="port-chip in">nominal</div>
-                <div className="port-chip in">override</div>
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Outputs
-                </div>
-                <div className="port-chip out">actuator_command</div>
-              </div>
-            </div>
-          ) : selectedPorts ? (
-            <div className="port-lists">
-              <div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Inputs
-                </div>
-                {selectedPorts.inputs.map((p) => (
-                  <div key={p} className="port-chip in">
-                    {p}
-                  </div>
-                ))}
-                {!selectedPorts.inputs.length && <span className="muted">—</span>}
-              </div>
-              <div>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                  Outputs
-                </div>
-                {selectedPorts.outputs.map((p) => (
-                  <div key={p} className="port-chip out">
-                    {p}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-              Select a block.
-            </p>
-          )}
-        </section>
-
-        <section className="compose-inspect-card">
-          <div className="why-kicker">Wires</div>
-          <div className="wire-list" style={{ marginTop: 8 }}>
-            {edges.map((e) => (
-              <div key={`${e.from}->${e.to}`} className={`wire-row ${e.kind === "override" ? "override" : ""}`}>
-                <span className="mono">{e.from.split(".")[0]}</span>
-                <span aria-hidden>→</span>
-                <span className="mono">{e.to.split(".")[0]}</span>
-                <span className="wire-kind">{e.kind === "override" ? "OVERRIDE" : "TYPED"}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </aside>
-    </div>
-  );
+ useEffect(()=>{if(ready)fit();},[ready]); // initial viewport only
+ useEffect(()=>{const controller=new AbortController();fetch("/api/library",{signal:controller.signal}).then(r=>r.json()).then(r=>setLibrary(r.items??[])).catch(()=>{});return()=>controller.abort();},[]);
+ useEffect(()=>{generation.current++;runtime.current=null;setRunning(false);setActions({});setEvents([]);setEvent(null);setReplay(null);setReplayResult("");setTick(0);},[fingerprint]);
+ const obstacleRef=useRef(obstacle);obstacleRef.current=obstacle;
+ async function step(count=5){
+  if(stepping.current||!active?.pkg.manifest.executable)return;stepping.current=true;const gen=generation.current;
+  try{if(!runtime.current){const loaded=await loadCompiledStack(active.pkg);if(gen!==generation.current)return;runtime.current=loaded;}if(gen!==generation.current)return;let latest:Awaited<ReturnType<CompiledStack["step"]>>|undefined;const batch:RuntimeEvent[]=[];
+   for(let i=0;i<count;i++){latest=await runtime.current!.step(scenarioInput(active.pkg,obstacleRef.current));if(gen!==generation.current)return;batch.push(...latest.events);if(latest.replay){setReplay(latest.replay);setReplayResult("");}}
+   if(latest){setTick(latest.tick+1);setActions(latest.actions);setEvents(prev=>[...prev,...batch].slice(-200));}
+  }catch(e){setError(String(e));setRunning(false);}finally{stepping.current=false;}
+ }
+ useEffect(()=>{if(!running)return;const timer=setInterval(()=>void step(20),50);return()=>clearInterval(timer);},[running,active]);
+ function resetRun(){generation.current++;runtime.current=null;setRunning(false);setEvents([]);setActions({});setEvent(null);setReplay(null);setReplayResult("");setTick(0);}
+ async function compile(){
+  resetRun();setBusy(true);setError("");const snap=draftRef.current,key=draftFingerprint(snap);
+  try{const pkg=await buildStack(snap.graph,async k=>{if(Object.hasOwn(snap.modules,k))return snap.modules[k];const n=snap.graph.nodes.find(n=>DEFINITIONS[n.type].module&&moduleKey(n)===k)!;const url=n.module?"/api/library/"+n.module.id+"/files?version="+encodeURIComponent(n.module.version)+"&path=block.json":"/blocks/"+k+"/1.0.0/block.json";const r=await fetch(url);if(!r.ok)throw Error("Could not load "+k);return r.text();});const hash=await digest(canonical(pkg));if(fingerRef.current!==key){setStatus("Graph changed during build. Build again.");return;}saveBuild({pkg,fingerprint:key,hash},snap);setTab(mode==="simulate"?"run":"build");setStatus(pkg.manifest.executable?"Executable browser package built":"Source package built; runtime interfaces unresolved");
+  }catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
+ }
+ async function importFile(file?:File){if(!file)return;setError("");try{if(file.size>20_000_000)throw Error("File exceeds 20 MB.");const raw=await file.text(),value=JSON.parse(raw);if(value.format==="synapsevm.compose-draft.v1"){const saved=checkedDraft(value.draft);commit(saved);setStatus("Draft imported");return;}const pkg=await importStack(raw);commit({graph:pkg.graph,positions:layout(pkg.graph),modules:pkg.modules});saveBuild({pkg,fingerprint:draftFingerprint({graph:pkg.graph,modules:pkg.modules}),hash:await digest(canonical(pkg))},{graph:pkg.graph,positions:layout(pkg.graph),modules:pkg.modules});setTab(mode==="simulate"?"run":"build");setStatus("Package checked; exact module bytes retained");setTimeout(()=>fit(layout(pkg.graph)),0);}catch(e){setError(String(e));}}
+ useEffect(()=>{if(!ready)return;const p=new URLSearchParams(window.location.search),repo=p.get("repository");if(!repo)return;setBuilt(null);setBusy(true);const controller=new AbortController();fetch("/api/library/"+repo+"/files?path=stack.synapse&version="+encodeURIComponent(p.get("version")??""),{signal:controller.signal}).then(r=>{if(!r.ok)throw Error("Published Stack unavailable");return r.text();}).then(async raw=>{const pkg=await importStack(raw);if(controller.signal.aborted)return;commit({graph:pkg.graph,positions:layout(pkg.graph),modules:pkg.modules});saveBuild({pkg,fingerprint:draftFingerprint({graph:pkg.graph,modules:pkg.modules}),hash:await digest(canonical(pkg))},{graph:pkg.graph,positions:layout(pkg.graph),modules:pkg.modules});setTab(mode==="simulate"?"run":"build");setTimeout(()=>fit(layout(pkg.graph)),0);}).catch(e=>{if(!controller.signal.aborted)setError(String(e));}).finally(()=>{if(!controller.signal.aborted)setBusy(false);});return()=>controller.abort();},[ready]);
+ function add(type:string){const current=draftRef.current;let id=type,suffix=2;while(current.graph.nodes.some(n=>n.id===id))id=type+"_"+suffix++;const rect=stage.current;const next={...current,graph:{...current.graph,nodes:[...current.graph.nodes,{id,type}]},positions:{...current.positions,[id]:{x:((rect?.clientWidth??600)/2-pan.x)/zoom,y:((rect?.clientHeight??400)/2-pan.y)/zoom}}};commit(next);setSelected(id);setEdgeIndex(null);setTab("inspect");}
+ useEffect(()=>{if(!ready||mode!=="compose")return;const query=new URLSearchParams(window.location.search);if(query.get("template")==="biopilot"){selectTemplate("biopilot");window.history.replaceState(null,"","/compose");return;}const id=query.get("block"),version=query.get("version");if(!id)return;const controller=new AbortController();void(async()=>{try{if(!version)throw Error("Choose a versioned release in Explore first.");const base="/api/library/"+id;const response=await fetch(base+"?version="+encodeURIComponent(version),{signal:controller.signal});if(!response.ok)throw Error("Selected release is unavailable.");const {item}=await response.json() as {item:LibraryItem};if(!canComposeBlock(item))throw Error("This release does not expose the supported four-channel reflex interface.");const file=await fetch(base+"/files?path=block.json&version="+encodeURIComponent(version),{signal:controller.signal});if(!file.ok)throw Error("Selected model bytes unavailable.");const raw=await file.text();if(await digest(raw)!==item.modelDigest)throw Error("Selected release digest does not match its model bytes.");if(!controller.signal.aborted)setRelease({item,raw});}catch(e){if(!controller.signal.aborted)setError(String(e));}})();return()=>controller.abort();},[ready,mode]);
+ function useRelease(start:boolean){if(!release)return;const {item,raw}=release,current=draftRef.current;const g=start?template():structuredClone(current.graph);let id="LoomGuard";if(!start){let suffix=2;while(g.nodes.some(n=>n.id===id))id="LoomGuard_"+suffix++;g.nodes.push({id,type:"LoomGuard"});}g.nodes=g.nodes.map(n=>n.id===id?{...n,module:{id:item.id,version:item.version,digest:item.modelDigest!}}:n);const pos=start?layout(g):{...current.positions,[id]:{x:80,y:80}};commit({graph:g,positions:pos,modules:{...start?{}:current.modules,[item.id+"@"+item.version]:raw}});setSelected(id);setEdgeIndex(null);setRelease(null);setStatus("Pinned "+item.id+"@"+item.version);window.history.replaceState(null,"","/compose");setTimeout(()=>fit(pos),0);}
+ function removeNode(){if(!node)return;const next={...graph,nodes:graph.nodes.filter(n=>n.id!==node.id),edges:graph.edges.filter(e=>!e.from.startsWith(node.id+".")&&!e.to.startsWith(node.id+"."))};updateGraph(next);setSelected("");}
+ function connect(to:string){if(!pending){setError("Select an output port first, then an input.");return;}const problem=connectionProblem(graph,pending,to);if(problem){const adapters=suggestAdapter(graph,pending,to);setAdapterOffer(adapters.length?{from:pending,to,types:adapters}:null);setError(problem+(adapters.length?" Insert adapter: "+adapters.join(", ")+".":""));return;}updateGraph({...graph,edges:[...graph.edges,{from:pending,to,mode:"LATEST"}]});}
+ function insertAdapter(type:string){
+ if(!adapterOffer)return;let id=type,suffix=2;while(graph.nodes.some(n=>n.id===id))id=type+"_"+suffix++;
+ const d=DEFINITIONS[type],edges=[...graph.edges,{from:adapterOffer.from,to:id+"."+Object.keys(d.inputs)[0],mode:"LATEST" as const},{from:id+"."+Object.keys(d.outputs)[0],to:adapterOffer.to,mode:"LATEST" as const}],next={...graph,nodes:[...graph.nodes,{id,type}],edges};
+ const problem=checkGraph(next).errors.find(e=>e.code==="CYCLE"||(e.edge!==undefined&&e.edge>=graph.edges.length));if(problem){setError(problem.message+" Remove the existing input connection first.");return;}
+ const a=anchor(adapterOffer.from,true),b=anchor(adapterOffer.to,false);commit({...draft,graph:next,positions:{...positions,[id]:{x:(a.x+b.x)/2,y:(a.y+b.y)/2+150}}});setSelected(id);
+ }
+ function setParam(key:string,value:number){if(!node)return;updateGraph({...graph,nodes:graph.nodes.map(n=>n.id===node.id?{...n,params:{...n.params,[key]:value}}:n)});}
+ function selectTemplate(kind:string){const g=template(kind),pos=layout(g);commit({graph:g,positions:pos,modules:{}});setSelected(g.nodes.find(n=>n.type==="LoomGuard")?.id??"");setEdgeIndex(null);setTimeout(()=>fit(pos),0);}
+ function anchor(port:string,out:boolean){const [id,name]=port.split("."),n=graph.nodes.find(n=>n.id===id);if(!n)return {x:0,y:0};const d=DEFINITIONS[n.type],p=positions[id]??{x:0,y:0};return {x:p.x+(out?235:0),y:p.y+88+Object.keys(out?d.outputs:d.inputs).indexOf(name)*27};}
+ function onDown(n:ComposeNode,e:PointerEvent){if(e.button!==0)return;e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);const p=positions[n.id]??{x:0,y:0};drag.current={id:n.id,px:e.clientX,py:e.clientY,x:p.x,y:p.y,original:draftRef.current};setSelected(n.id);setEdgeIndex(null);setTab("inspect");}
+ function onMove(e:PointerEvent){const d=drag.current;if(!d)return;setDraft(old=>({...old,positions:{...old.positions,[d.id]:{x:d.x+(e.clientX-d.px)/zoom,y:d.y+(e.clientY-d.py)/zoom}}}));}
+ function onUp(){const d=drag.current;if(d){if(canonical(d.original.positions)!==canonical(draftRef.current.positions)){setPast(p=>[...p.slice(-29),d.original]);setFuture([]);}persistDraft(draftRef.current);drag.current=null;}}
+ const available=library.filter(i=>i.kind==="NeuroBlock"&&canonical(i.actualInputs)===canonical(["depth_front","depth_left","depth_right","loom"])&&i.modelDigest);
+ return <div className={"cmp cmp-mode-"+mode}>
+ <nav className="cmp-flow" aria-label="Build workflow">{[["explore","Explore","Choose a release"],["compose","Compose","Wire the graph"],["compile","Compile","Lock an artifact"],["simulate","Simulate","Test that artifact"]].map(([key,label,hint],i)=><button key={key} aria-current={mode===key?"step":undefined} onClick={()=>go("/"+key)}><b>{i+1} · {label}</b><small>{hint}</small></button>)}</nav>
+ <div className="cmp-flow-summary"><strong>{mode==="compose"?"Design your controller":mode==="compile"?"Compile the current graph":"Simulate the compiled Stack"}</strong><p>{mode==="compose"?"Choose versioned modules, wire explicit adapters, then continue to Compile.":mode==="compile"?"Check the graph, resolve exact model bytes, and produce the package used by Simulate.":"Run the locked package below. Return to Compose to change behavior, then compile a new build."}</p>{mode==="simulate"&&<Link href="/simulate?mode=demo">Browse bundled Block demos →</Link>}</div>
+ {release&&<div className="cmp-alert"><div><strong>{release.item.id}@{release.item.version}</strong><p>Exact release loaded from Explore. Add it to your graph, or start a connected Collision Shield using this release.</p></div><button onClick={()=>useRelease(false)}>Add to current graph</button><button onClick={()=>useRelease(true)}>Start a connected Stack</button><button onClick={()=>setRelease(null)}>Dismiss</button></div>}
+ {!ready&&<p role="status">Loading workflow…</p>}
+ <header className="cmp-toolbar"><div><span className="cmp-eyebrow">NEUROSTACK WORKBENCH</span><div className="cmp-title"><input readOnly={mode!=="compose"} aria-label="Stack name" value={graph.name} onChange={e=>updateGraph({...graph,name:e.target.value})}/><span>@</span><input readOnly={mode!=="compose"} aria-label="Stack version" value={graph.version} onChange={e=>updateGraph({...graph,version:e.target.value})}/></div></div>
+ <div className="cmp-tools"><button onClick={undo} disabled={!past.length} title="Undo">↶ Undo</button><button onClick={redo} disabled={!future.length} title="Redo">↷ Redo</button><label className="cmp-file">Import<input type="file" accept=".synapse,.json" aria-label="Import Stack or draft" onChange={e=>{void importFile(e.target.files?.[0]);e.target.value="";}}/></label><button onClick={()=>download(graph.name+".draft.json",JSON.stringify({format:"synapsevm.compose-draft.v1",draft},null,2))}>Save draft</button><button className="primary" disabled={!ready||busy||validation.errors.length>0} onClick={()=>mode==="compose"?go("/compile"):void compile()}>{mode==="compose"?"Continue to Compile":busy?"Compiling…":"Compile Stack"}</button><button className="run" disabled={!ready||!active?.pkg.manifest.executable} onClick={()=>go("/simulate")}>Open in Simulate →</button></div>
+ </header>
+ <div className="cmp-status"><span className={validation.errors.length?"bad":"good"}>{validation.errors.length?validation.errors.length+" issues":"Graph valid"}</span><span>{graph.nodes.length} nodes · {graph.edges.length} connections</span><span>{active?(active.pkg.manifest.executable?"Built · executable JS":"Built · source only"):"Unbuilt changes"}</span><span>{status}</span></div>
+ {error&&<div role="alert" className="cmp-alert"><span>{error}</span>{adapterOffer?.types.map(t=><button key={t} onClick={()=>insertAdapter(t)}>Insert {t}</button>)}<button aria-label="Dismiss error" onClick={()=>setError("")}>×</button></div>}
+ <div className="cmp-workspace">
+ <aside className="cmp-palette"><h2>Building blocks</h2><p>Typed pieces. Explicit behavior.</p><label>Start from a template<select aria-label="Template" defaultValue="shield" onChange={e=>selectTemplate(e.target.value)}><option value="shield">Collision Shield · executable</option><option value="brake">Emergency Brake · executable</option><option value="arbiter">Safety Override · executable</option><option value="biopilot">BioPilot · source template</option><option value="empty">Empty canvas</option></select></label><input aria-label="Search nodes" placeholder="Find a node…" value={search} onChange={e=>setSearch(e.target.value)}/>
+ {families.map(f=><section key={f}><h3>{f==="neuroblock"?"NEUROBLOCKS":f.toUpperCase()}</h3>{Object.entries(DEFINITIONS).filter(([name,d])=>d.family===f&&(name+" "+d.description).toLowerCase().includes(search.toLowerCase())).map(([type,d])=><button className={"cmp-add family-"+f} key={type} onClick={()=>add(type)} title={d.description}><span>{type}</span><small>{d.unsupported?"Source interface":f==="neuroblock"?"Locked neural model":d.stateful?"Stateful · deterministic":"Deterministic"}</small><b>+</b></button>)}</section>)}
+ <div className="cmp-trust-note"><strong>Trust stays outside the loop</strong><p>Receipts and replay run after the control decision. No network service sits between a sensor and an actuator.</p></div>
+ </aside>
+ <section className="cmp-center">
+ <div className="cmp-canvas-tools"><span>{pending?"Connect "+pending+" to an input":"Select an output, then an input to connect"}</span>{pending&&<button onClick={()=>setPending("")}>Cancel wire</button>}<button onClick={()=>{const pos=layout(graph);commit({...draft,positions:pos});fit(pos);}}>Auto layout</button><button onClick={()=>fit()}>Fit</button><button aria-label="Zoom out" onClick={()=>setZoom(z=>Math.max(.2,z-.1))}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Zoom in" onClick={()=>setZoom(z=>Math.min(1.5,z+.1))}>+</button></div>
+ <div ref={stage} className="cmp-stage" aria-label="Composition canvas" onPointerDown={e=>{if(e.target!==e.currentTarget)return;panDrag.current={px:e.clientX,py:e.clientY,...pan};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{const p=panDrag.current;if(p)setPan({x:p.x+e.clientX-p.px,y:p.y+e.clientY-p.py});}} onPointerUp={()=>{panDrag.current=null;}} onPointerCancel={()=>{panDrag.current=null;drag.current=null;}}>
+ <div className="cmp-transform" style={{transform:"translate("+pan.x+"px,"+pan.y+"px) scale("+zoom+")"}}>
+ <svg className="cmp-wires" aria-label="Graph connections">{graph.edges.map((e,i)=>{const a=anchor(e.from,true),b=anchor(e.to,false),dx=Math.max(55,Math.abs(b.x-a.x)*.45),path="M "+a.x+" "+a.y+" C "+(a.x+dx)+" "+a.y+", "+(b.x-dx)+" "+b.y+", "+b.x+" "+b.y;return <g key={e.from+e.to+i}><path className={edgeIndex===i?"selected":""} d={path}/><path className="hit" d={path} role="button" tabIndex={0} aria-label={"Inspect connection "+e.from+" to "+e.to} onClick={()=>{setEdgeIndex(i);setSelected("");setTab("inspect");}} onKeyDown={ev=>{if(ev.key==="Enter"){setEdgeIndex(i);setSelected("");setTab("inspect");}}}/></g>;})}</svg>
+ {graph.nodes.map(n=>{const d=DEFINITIONS[n.type],p=positions[n.id]??{x:0,y:0},lit=events.slice(-12).some(e=>e.node===n.id&&e.tick>=tick-6);return <article key={n.id} style={{left:p.x,top:p.y}} className={"cmp-node family-"+d.family+(selected===n.id?" selected":"")+(lit?" active":"")}>
+ <button className="cmp-node-head" onPointerDown={e=>onDown(n,e)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={()=>{setSelected(n.id);setEdgeIndex(null);setTab("inspect");}}><small>{d.family} · P{d.priority}</small><strong>{n.id}</strong><span>{paramsFor(n).hz} Hz · {d.stateful?"stateful":"stateless"}{d.unsupported?" · source":""}</span></button>
+ <div className="cmp-ports"><div>{Object.entries(d.inputs).map(([port,type])=><button key={port} title={type} aria-label={"Connect input "+n.id+"."+port} onClick={()=>connect(n.id+"."+port)}><i/>{port}</button>)}</div><div>{Object.entries(d.outputs).map(([port,type])=><button key={port} title={type} className={pending===n.id+"."+port?"pending":""} aria-label={"Select output "+n.id+"."+port} onClick={()=>{setPending(n.id+"."+port);setError("");}}>{port}<i/></button>)}</div></div></article>;})}
+ </div>{!graph.nodes.length&&<div className="cmp-empty">Add a sensor, a neural module, and an actuator to start.</div>}
+ </div>
+ <ComposeAssistant onApply={applyPlan}/>
+  <section className="cmp-diagnostics"><div><h3>Build checks</h3><span>{validation.estimatedMs.toFixed(1)} ms estimated compute path · {graph.deadlineMs} ms budget</span></div>{validation.errors.length?validation.errors.map((e,i)=><button className="bad" key={i} onClick={()=>{if(mode!=="compose"){go("/compose");return;}if(e.node)setSelected(e.node);if(e.edge!==undefined)setEdgeIndex(e.edge);setTab("inspect");}}><b>{e.code}</b> {e.message}</button>):<p className="good">Types, required inputs, writers, cycles, parameters and timing checked.</p>}{validation.warnings.map((e,i)=><p key={i}>{e.message}</p>)}{validation.blocked.map((e,i)=><p className="cmp-warning" key={i}><b>Runtime unavailable:</b> {e.message}</p>)}</section>
+ <section className="cmp-timeline"><header><h3>Execution timeline</h3><span>{events.length?events.length+" recent node events":"Run a built graph to record events"}</span></header><div>{events.slice(-30).reverse().map((e,i)=><button key={e.tick+"-"+e.node+"-"+i} onClick={()=>{setEvent(e);setTab("run");}}><code>{e.tick} ms</code><strong>{e.node}</strong><span className={e.type==="SAFETY_OVERRIDE"||e.type==="TRIGGER"?"bad":""}>{e.type}</span></button>)}</div></section>
+ </section>
+ <aside className="cmp-inspector"><nav hidden={mode!=="compose"}>{(["inspect","build","run"] as const).map(t=><button key={t} aria-pressed={tab===t} onClick={()=>setTab(t)}>{t==="inspect"?"Inspector":t==="build"?"Compile & export":"Quick preview"}</button>)}</nav>
+ {tab==="inspect"&&<>
+ {edge?<><span className="cmp-eyebrow">CONNECTION</span><h2>{edge.from.split(".")[0]} → {edge.to.split(".")[0]}</h2><code>{edge.from}<br/>↓<br/>{edge.to}</code><dl><dt>Delivery</dt><dd>LATEST · held until updated</dd><dt>Buffer</dt><dd>One latest value</dd><dt>Conversion</dt><dd>None. Add an explicit adapter.</dd></dl><button className="danger" onClick={()=>{updateGraph({...graph,edges:graph.edges.filter((_,i)=>i!==edgeIndex)});setEdgeIndex(null);}}>Delete connection</button></>:node&&nodeDef?<><span className="cmp-eyebrow">{nodeDef.family} · {nodeDef.module?"NEURAL MODEL":"CONVENTIONAL SOFTWARE"}</span><h2>{node.id}</h2><p>{nodeDef.description}</p><dl><dt>State</dt><dd>{nodeDef.stateful?"Stateful · captured for replay":"Stateless"}</dd><dt>Priority</dt><dd>P{nodeDef.priority} {nodeDef.priority===0?"Critical":"Control / perception"}</dd><dt>Compute estimate</dt><dd>{nodeDef.ms} ms · unmeasured</dd><dt>Execution</dt><dd>{nodeDef.unsupported?"Source interface only":"Deterministic JavaScript"}</dd></dl><label>Update rate<select aria-label="Node update rate" value={paramsFor(node).hz} onChange={e=>setParam("hz",Number(e.target.value))}>{RATES.map(hz=><option key={hz} value={hz}>{hz} Hz</option>)}</select></label>{Object.entries(nodeDef.params).map(([key,spec])=><label key={key}>{spec.label}<input type="number" min={spec.min} max={spec.max} value={paramsFor(node)[key]} onChange={e=>setParam(key,Number(e.target.value))}/></label>)}
+ {node.type==="LoomGuard"&&<label>Locked Library release<select aria-label="LoomGuard release" value={node.module?node.module.id+"@"+node.module.version:"bundled"} onChange={e=>{const item=available.find(i=>i.id+"@"+i.version===e.target.value);updateGraph({...graph,nodes:graph.nodes.map(n=>n.id===node.id?{id:n.id,type:n.type,params:n.params??{},...item?{module:{id:item.id,version:item.version,digest:item.modelDigest!}}:{}}:n)});}}><option value="bundled">Bundled LoomGuard · 1.0.0</option>{available.map(i=><option key={i.id} value={i.id+"@"+i.version}>{i.id}@{i.version}</option>)}</select></label>}
+ <h3>Port contracts</h3>{Object.entries(nodeDef.inputs).map(([p,t])=><p className="cmp-contract" key={p}><b>IN · {p}</b><code>{t}</code></p>)}{Object.entries(nodeDef.outputs).map(([p,t])=><p className="cmp-contract" key={p}><b>OUT · {p}</b><code>{t}</code></p>)}{nodeDef.module&&<Link href={"/explore/"+(node.module?.id??"synapsevm/"+nodeDef.module)+(node.module?"?version="+node.module.version:"")}>Open Library repository ↗</Link>}<button className="danger" onClick={removeNode}>Delete node and connections</button></>:<><h2>Inspect a piece</h2><p>Select a node or connection on the canvas.</p></>}
+ <hr/><h3>Stack settings</h3><label>Estimated compute deadline (ms)<input type="number" min=".1" max="1000" step=".1" value={graph.deadlineMs} onChange={e=>updateGraph({...graph,deadlineMs:Number(e.target.value)})}/></label><label>Receipt policy<select aria-label="Receipt policy" value={graph.policy} onChange={e=>updateGraph({...graph,policy:e.target.value as ComposeGraph["policy"]})}><option value="FAST">FAST · no receipts</option><option value="AUDIT">AUDIT · critical output changes</option><option value="DEBUG">DEBUG · every executed tick</option></select></label><p className="cmp-small">Rates use a 1 ms deterministic clock. Inputs are recorded Q16.16 features. Estimates exclude acquisition, waiting for scheduled updates, and hardware latency.</p>
+ </>}
+ {tab==="build"&&<><span className="cmp-eyebrow">BUILD ARTIFACT</span><h2>{active?"A graph with an identity.":"Build your current graph."}</h2>{active?<><p className={active.pkg.manifest.executable?"good":"cmp-warning"}>{active.pkg.manifest.executable?"Executable in the browser and standalone JavaScript.":"Source only: unresolved neural output interfaces."}</p><h3>Stack ID</h3><code className="cmp-hash">{active.pkg.manifest.stackId}</code><h3>Package SHA-256</h3><code className="cmp-hash">{active.hash}</code><h3>Locked dependencies</h3>{Object.entries(active.pkg.lockfile).map(([k,v])=><p className="cmp-contract" key={k}><b>{k.includes("@")?k:k+"@"+v.version}</b><code>{short(v.digest)}</code></p>)}<h3>Execution schedule</h3><ol>{active.pkg.runtimePlan.order.map(id=><li key={id}>{id}<small> every {active.pkg.runtimePlan.periods[id]} ms</small></li>)}</ol><button className="primary" onClick={()=>download(graph.name+"-"+graph.version+".synapse",canonical(active.pkg))}>Download .synapse</button><a className="cmp-download" href="/runtime/compose-runtime.mjs" download>Download JavaScript runtime</a><button onClick={()=>{try{sessionStorage.setItem("synapsevm.publish.stack",canonical(active.pkg));window.location.assign("/explore/publish?compose=1");}catch{setError("Could not transfer package. Download it, then upload in Library.");}}}>Publish to local Library</button><p className="cmp-small">WASM, Rust and ROS2 graph exports are not implemented. This release contains a portable JavaScript execution plan and locked model bytes.</p><details><summary>Use outside this website</summary><pre>{'import { loadCompiledStack, scenarioInput } from "./compose-runtime.mjs";\nimport { readFile } from "node:fs/promises";\nconst pkg = JSON.parse(await readFile("'+graph.name+'-'+graph.version+'.synapse", "utf8"));\nconst stack = await loadCompiledStack(pkg);\n// Synthetic recorded stimulus; replace with sensor inputs.\nconst result = await stack.step(scenarioInput(pkg, false));\nconsole.log(result.actions);'}</pre></details></>:<p>No current compiled artifact. Compile Stack to resolve dependencies and produce the package. Graph or module changes require a new build.</p>}</>}
+ {tab==="run"&&<><span className="cmp-eyebrow">LOCAL EXECUTION</span><h2>Follow the actual decision.</h2>{active&&<><p>{active.pkg.manifest.name}@{active.pkg.manifest.version}</p><code className="cmp-hash">Package {active.hash}</code></>}{!active?.pkg.manifest.executable?<p>No current executable package. Compile the current draft first. <button onClick={()=>go("/compile")}>Go to Compile →</button></p>:<><World actions={actions} obstacle={obstacle} tick={tick}/><div className="cmp-run-buttons"><button className="primary" onClick={()=>setRunning(v=>!v)}>{running?"Pause":"Run"}</button><button disabled={running} onClick={()=>void step()}>Step 5 ms</button><button onClick={resetRun}>Reset</button></div><label className="cmp-toggle"><input type="checkbox" checked={obstacle} onChange={e=>setObstacle(e.target.checked)}/> Inject looming obstacle</label><p className="cmp-small">Synthetic, recorded four-channel stimulus. The preview displays graph commands; it is not a physics or hardware benchmark.</p><h3>Actuator outputs · Q16.16</h3><pre>{JSON.stringify(actions,null,2)}</pre>
+ <div className="cmp-trust-note"><h3>Receipt & replay</h3><p>{replay?"Critical decision captured with input, pre-state, graph identity and final action.":"No receipt yet. AUDIT records critical output changes; DEBUG records every executed tick."}</p>{replay&&<><code>{short(replay.receipt.hash)}</code><button onClick={async()=>{setRunning(false);try{await replayStack(active.pkg,replay);setReplayResult("MATCH · fresh local runtime reproduced input/state commitments, neural events, control decisions and actuator outputs.");}catch(e){setReplayResult(String(e));}}}>Replay in fresh runtime</button><button onClick={()=>{try{sessionStorage.setItem("synapsevm.verify.stack",JSON.stringify({package:active.pkg,evidence:replay}));window.location.assign("/verify?evidence=compose");}catch{setError("Storage unavailable. Download the Stack and replay, then upload both in Verify.");}}}>Open in Verify</button><button onClick={()=>download(graph.name+".replay.json",canonical(replay))}>Download replay bundle</button><p role="status">{replayResult}</p></>}</div>
+ {event&&<section className="cmp-why"><h3>WHY · {event.node}</h3><p>{event.tick} ms · {event.detail}</p>{event.moduleId&&<code>{event.moduleId}</code>}<h4>Inputs received</h4><pre>{JSON.stringify(event.inputs,null,2)}</pre><h4>Outputs produced</h4><pre>{JSON.stringify(event.outputs,null,2)}</pre>{event.fired!==undefined&&<p>{event.fired} neurons fired; first trace IDs: {event.trace?.join(", ")}</p>}</section>}</>}</>}
+ </aside></div>
+ </div>;
 }
