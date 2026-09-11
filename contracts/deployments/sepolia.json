@@ -1,0 +1,11 @@
+{
+    "contract":  "NeuroRegistry",
+    "explorer":  "https://sepolia.etherscan.io/address/0x89913aeA6c8Fe467e68921ABA4270E692999ff9e",
+    "deployedAt":  "2026-09-11T22:46:35.7387918Z",
+    "transactionHash":  "0x246c0d5d7e9f6ab7362cd917aa870360a38ba640edc0960136b590f7cad46c04",
+    "rpc":  "https://ethereum-sepolia-rpc.publicnode.com",
+    "address":  "0x89913aeA6c8Fe467e68921ABA4270E692999ff9e",
+    "network":  "sepolia",
+    "startBlock":  11684923,
+    "deployer":  "0x6B3Fa22c9E70243609F4f96a837c5D1ef2a53812"
+}
