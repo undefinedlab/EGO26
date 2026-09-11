@@ -5,13 +5,14 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Shell } from "@/components/Shell";
 import { Simulator } from "@/components/Simulator";
-import { ComposeStudio } from "@/components/ComposeStudio";
+import { StackSimulator } from "@/components/StackSimulator";
+import { StackCodeLab } from "@/components/StackCodeLab";
 import { MotifLab } from "@/components/MotifLab";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { casesForBlock, type BlockId } from "@/lib/blocks";
 import { SIMULATE_HREF } from "@/lib/nav";
 import { useLabStore } from "@/lib/store";
-import "../../compose/compose.css";
+import "@/components/stack-simulator.css";
 import "../verify.css";
 
 type Subject = "block" | "motif";
@@ -64,11 +65,21 @@ function SimLabInner() {
     });
   }, [params, set]);
 
+  // The scenario lab is the main view; the road environment is the same
+  // package in a 3D body, kept one link away rather than behind a tab strip.
   if (!demo) {
+    const road = params.get("view") === "road";
     return (
       <>
         <SimulateBackBar />
-        <ComposeStudio mode="simulate" />
+        <p className="sim-view-switch">
+          {road ? (
+            <Link href={SIMULATE_HREF}>&larr; Code, scenarios and scene</Link>
+          ) : (
+            <Link href={`${SIMULATE_HREF}?view=road`}>Full-width scene &rarr;</Link>
+          )}
+        </p>
+        {road ? <StackSimulator /> : <StackCodeLab />}
       </>
     );
   }
