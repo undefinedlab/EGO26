@@ -1,0 +1,82 @@
+[
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" },
+      { "internalType": "string", "name": "manifestURI", "type": "string" }
+    ],
+    "name": "registerBlock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "stackRoot", "type": "bytes32" },
+      { "internalType": "string", "name": "manifestURI", "type": "string" }
+    ],
+    "name": "registerStack",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" }],
+    "name": "deactivateBlock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "bytes32", "name": "requestHash", "type": "bytes32" },
+      { "internalType": "bytes32", "name": "receiptRoot", "type": "bytes32" },
+      { "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" },
+      { "internalType": "uint8", "name": "score", "type": "uint8" },
+      { "internalType": "string", "name": "evidenceURI", "type": "string" }
+    ],
+    "name": "recordValidation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" },
+      { "indexed": true, "internalType": "address", "name": "publisher", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "manifestURI", "type": "string" }
+    ],
+    "name": "NeuroBlockRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "stackRoot", "type": "bytes32" },
+      { "indexed": true, "internalType": "address", "name": "publisher", "type": "address" },
+      { "indexed": false, "internalType": "string", "name": "manifestURI", "type": "string" }
+    ],
+    "name": "NeuroStackRegistered",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" }
+    ],
+    "name": "NeuroBlockDeactivated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "requestHash", "type": "bytes32" },
+      { "indexed": true, "internalType": "bytes32", "name": "receiptRoot", "type": "bytes32" },
+      { "indexed": true, "internalType": "bytes32", "name": "blockRoot", "type": "bytes32" },
+      { "indexed": false, "internalType": "uint8", "name": "score", "type": "uint8" },
+      { "indexed": false, "internalType": "string", "name": "evidenceURI", "type": "string" }
+    ],
+    "name": "ValidationRecorded",
+    "type": "event"
+  }
+]

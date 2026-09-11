@@ -1,0 +1,8 @@
+{
+  "sepolia": {
+    "NeuroRegistry": {
+      "address": "0x89913aea6c8fe467e68921aba4270e692999ff9e",
+      "startBlock": 11684923
+    }
+  }
+}
