@@ -18,11 +18,14 @@
 
 import { canonical, digest, type ComposePackage } from "./composeCompiler";
 import type { ReplayBundle } from "./composeRuntime";
+import type { CreResultAssessment } from "./creValidation";
 
 const DB = "synapsevm.shelf";
-const VERSION = 1;
+const VERSION = 3;
 const ITEMS = "items";
 const PAYLOADS = "payloads";
+const CRE_RESULTS = "cre-results";
+const LEDGER_ANCHORS = "ledger-anchors";
 
 export type ShelfKind = "stack" | "receipt";
 export type ShelfSource = "compiled" | "imported" | "captured";
@@ -57,6 +60,16 @@ export type ShelfItem = {
   eventCount?: number;
 };
 
+export type StoredLedgerAnchor = {
+  network: string;
+  topicId: string;
+  sequenceNumber: string;
+  consensusTimestamp: string;
+  receiptRoot: string;
+  leaves: string[];
+  savedAt: string;
+};
+
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB, VERSION);
@@ -64,6 +77,8 @@ function open(): Promise<IDBDatabase> {
       const db = req.result;
       if (!db.objectStoreNames.contains(ITEMS)) db.createObjectStore(ITEMS, { keyPath: "id" });
       if (!db.objectStoreNames.contains(PAYLOADS)) db.createObjectStore(PAYLOADS);
+      if (!db.objectStoreNames.contains(CRE_RESULTS)) db.createObjectStore(CRE_RESULTS);
+      if (!db.objectStoreNames.contains(LEDGER_ANCHORS)) db.createObjectStore(LEDGER_ANCHORS);
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error ?? new Error("Could not open the local shelf."));
@@ -95,6 +110,26 @@ export function readStack(id: string): Promise<ComposePackage | undefined> {
 
 export function readReceipt(id: string): Promise<ReplayBundle | undefined> {
   return run<ReplayBundle | undefined>(PAYLOADS, "readonly", (s) => s.get(id) as IDBRequest<ReplayBundle | undefined>);
+}
+
+export function readCreResult(receiptHash: string): Promise<CreResultAssessment | undefined> {
+  return run<CreResultAssessment | undefined>(CRE_RESULTS, "readonly", (s) =>
+    s.get(receiptHash) as IDBRequest<CreResultAssessment | undefined>,
+  );
+}
+
+export function putCreResult(receiptHash: string, result: CreResultAssessment): Promise<IDBValidKey> {
+  return run<IDBValidKey>(CRE_RESULTS, "readwrite", (s) => s.put(result, receiptHash));
+}
+
+export function readLedgerAnchor(receiptHash: string): Promise<StoredLedgerAnchor | undefined> {
+  return run<StoredLedgerAnchor | undefined>(LEDGER_ANCHORS, "readonly", (s) =>
+    s.get(receiptHash) as IDBRequest<StoredLedgerAnchor | undefined>,
+  );
+}
+
+export function putLedgerAnchor(receiptHash: string, anchor: StoredLedgerAnchor): Promise<IDBValidKey> {
+  return run<IDBValidKey>(LEDGER_ANCHORS, "readwrite", (s) => s.put(anchor, receiptHash));
 }
 
 async function write(item: ShelfItem, payload: unknown) {
@@ -148,11 +183,15 @@ export async function putReceipt(bundle: ReplayBundle, source: ShelfSource, stac
 export async function removeItem(id: string) {
   await run(ITEMS, "readwrite", (s) => s.delete(id));
   await run(PAYLOADS, "readwrite", (s) => s.delete(id));
+  await run(CRE_RESULTS, "readwrite", (s) => s.delete(id));
+  await run(LEDGER_ANCHORS, "readwrite", (s) => s.delete(id));
 }
 
 export async function clearShelf() {
   await run(ITEMS, "readwrite", (s) => s.clear());
   await run(PAYLOADS, "readwrite", (s) => s.clear());
+  await run(CRE_RESULTS, "readwrite", (s) => s.clear());
+  await run(LEDGER_ANCHORS, "readwrite", (s) => s.clear());
 }
 
 /** Best-effort: a failed shelf write must never break a compile. */

@@ -1,57 +1,82 @@
 "use client";
-import {Shell} from "@/components/Shell";
-import {VerifyShelf} from "@/components/VerifyShelf";
-import Link from "next/link";
-import {useEffect,useRef,useState} from "react";
-import {verifyArtifact,verifyBrowserEvidence,signedReplayReport,captureEvidence,type VerificationReport,type BrowserEvidence,verifyStackEvidence} from "@/lib/verification";
-import {canonical} from "@/lib/stackCompiler";
-import type {ReplayBundle} from "@/lib/composeRuntime";
-import {SynapseVmJs,q16} from "@/lib/synapseVm";
+
+import { Shell } from "@/components/Shell";
+import { VerifyShelf } from "@/components/VerifyShelf";
+import { useEffect, useState } from "react";
+import { putReceipt, putStack } from "@/lib/shelf";
+import type { ReplayBundle } from "@/lib/composeRuntime";
+import type { ComposePackage } from "@/lib/composeCompiler";
 import "./verify.css";
-const layers=["Source","Build","Artifact","Deployment","Execution","Replay","External","Anchor"];
-type Mode="artifact"|"browser"|"signed";
-function download(name:string,value:unknown){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-export default function VerifyPage(){
- const [mode,setMode]=useState<Mode>("artifact"),[artifact,setArtifact]=useState(""),[filename,setFilename]=useState(""),[expected,setExpected]=useState(""),[evidence,setEvidence]=useState<BrowserEvidence|ReplayBundle|null>(null),[receipt,setReceipt]=useState(""),[bundle,setBundle]=useState("receipt-bundles/75f63a0edd5a1b6c"),[block,setBlock]=useState("blocks/loomguard/1.0.0/block.json"),[report,setReport]=useState<VerificationReport|null>(null),[rawResult,setRawResult]=useState<unknown>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const revision=useRef(0);
- function clear(){revision.current++;setReport(null);setRawResult(null);setError("");setBusy(false);}
- function changeMode(m:Mode){clear();setMode(m);setNotice("");}
- useEffect(()=>{const source=new URLSearchParams(window.location.search).get("evidence");if(source==="compose"){try{const raw=sessionStorage.getItem("synapsevm.verify.stack");if(!raw)throw Error("No Compose evidence. Capture a Stack receipt first.");const handoff=JSON.parse(raw);setEvidence(handoff.evidence);setArtifact(canonical(handoff.package));setFilename(handoff.package.graph.name+".synapse");setMode("browser");setNotice("Compose package and replay evidence loaded.");}catch(e){setError(String(e));}return;}if(source!=="simulator")return;try{const raw=sessionStorage.getItem("synapsevm.verify.evidence");if(!raw)throw Error("No captured simulator evidence. Generate an event and open Inspect WHY first.");setEvidence(JSON.parse(raw));setMode("browser");setNotice("Captured Sim Lab evidence loaded. Run replay to check it.");}catch(e){setError(String(e));}},[]);
- async function upload(file:File|undefined,target:"artifact"|"browser"|"signed"){
-  if(!file)return;clear();const token=revision.current;setNotice("");if(target==="artifact"){setArtifact("");setFilename("");}else if(target==="browser")setEvidence(null);else setReceipt("");
-  try{if(file.size>(target==="signed"?1_000_000:20_000_000))throw Error("File exceeds the supported size limit.");const raw=await file.text();if(token!==revision.current)return;if(target==="artifact"){setArtifact(raw);setFilename(file.name);}else if(target==="browser"){const value=JSON.parse(raw);if(!["synapsevm.browser-replay.v1","synapsevm.stack-replay.v1"].includes(value?.format))throw Error("Choose a browser-replay.v1 bundle containing model, input and exact pre-state.");setEvidence(value);}else setReceipt(raw);}catch(e){if(token===revision.current)setError(String(e));}
- }
- async function localExample(){
-  clear();setBusy(true);const token=revision.current;try{const r=await fetch("/blocks/loomguard/1.0.0/block.json");if(!r.ok)throw Error("Example model unavailable.");const model=await r.text(),vm=new SynapseVmJs(JSON.parse(model));vm.step([0,0,0,0],0);const before=Array.from(vm.snapshot()),input=[q16(.8),0,0,q16(.6)],out=vm.step(input,1),value=await captureEvidence(model,1,input,before,out,Array.from(vm.snapshot()));if(token!==revision.current)return;setEvidence(value);setNotice("Synthetic local example generated. Its neural execution is recorded; no device signature is attached.");}catch(e){if(token===revision.current)setError(String(e));}finally{if(token===revision.current)setBusy(false);}
- }
- async function signedExample(){clear();setBusy(true);const token=revision.current;try{const r=await fetch("/samples/receipt-current.json");if(!r.ok)throw Error("Sample unavailable.");const raw=await r.text();if(token!==revision.current)return;setReceipt(raw);setBundle("receipt-bundles/75f63a0edd5a1b6c");setBlock("blocks/loomguard/1.0.0/block.json");setNotice("Bundled signed sample loaded. It is not a live simulator receipt.");}catch(e){if(token===revision.current)setError(String(e));}finally{if(token===revision.current)setBusy(false);}}
- async function run(){
-  clear();setBusy(true);const token=revision.current;
-  try{let next:VerificationReport;
-   if(mode==="artifact")next=await verifyArtifact(artifact,expected);
-   else if(mode==="browser")next=evidence?.format==="synapsevm.stack-replay.v1"?await verifyStackEvidence(artifact,evidence):await verifyBrowserEvidence(evidence);
-   else {const value=JSON.parse(receipt);if(value?.schema!=="synapsevm.neuroreceipt.v2")throw Error("The local Rust verifier accepts neuroreceipt.v2.");const r=await fetch("/api/verify/replay",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({receipt:value,bundleDir:bundle,blockPath:block}),signal:AbortSignal.timeout(40000)});const result=await r.json();if(token!==revision.current)return;setRawResult(result);if(!r.ok)throw Error(result.message||result.error||"Validator unavailable. Start npm run dev:validator.");next=signedReplayReport(result,value);}
-   if(token===revision.current)setReport(next);
-  }catch(e){if(token===revision.current)setError(e instanceof Error?e.message:String(e));}finally{if(token===revision.current)setBusy(false);}
- }
- const canRun=mode==="artifact"?!!artifact:mode==="browser"?!!evidence&&(evidence.format!=="synapsevm.stack-replay.v1"||!!artifact):!!receipt;
- return <Shell wide><div className="vf">
- <header className="vf-header"><div><span className="vf-kicker">EVIDENCE WORKSPACE</span><h1>Know what was checked.</h1><p>Inspect the artifact. Reproduce the execution. Follow each claim from source to action.</p></div><Link href="/verify/simulate" className="vf-simulate">Simulate</Link></header>
- <VerifyShelf/>
- <div className="vf-section-heading" style={{marginBottom:14}}><span className="vf-kicker">CHECK SOMETHING ELSE</span><span>Artifact, local replay or signed receipt</span></div>
- <nav className="vf-modes" aria-label="Verification mode">{([["artifact","01","Artifact","Check downloaded software"],["browser","02","Local replay","Reproduce captured neural execution"],["signed","03","Signed receipt","Replay with the local Rust verifier"]] as const).map(([id,num,title,desc])=><button key={id} aria-pressed={mode===id} onClick={()=>changeMode(id)}><span>{num}</span><div><strong>{title}</strong><small>{desc}</small></div></button>)}</nav>
- <div className="vf-layout"><section className="vf-input"><div className="vf-section-heading"><span className="vf-kicker">PROVIDE EVIDENCE</span><span>Local verification</span></div>
- {mode==="artifact"&&<><h2>Which software are you checking?</h2><p>Upload a NeuroStack source package or a Block model. Compare its bytes with an expected digest when you have one.</p><label className="vf-upload"><b>Choose .synapse or block.json</b><span>{filename||"Maximum 20 MB; Block models up to 4 MB"}</span><input type="file" accept=".synapse,.json" aria-label="Upload artifact" onChange={e=>{void upload(e.target.files?.[0],"artifact");e.target.value="";}}/></label><label>Expected package SHA-256 <span>optional</span><input aria-label="Expected package hash" placeholder="sha256:…" value={expected} onChange={e=>{clear();setExpected(e.target.value);}}/></label><div className="vf-note">Without an expected digest, the report distinguishes a computed identity from a match to trusted bytes.</div></>}
- {mode==="browser"&&<><h2>Replay the exact neural state.</h2><p>Load the evidence captured by Sim Lab, upload a replay bundle, or generate a synthetic example.</p><label className="vf-upload"><b>Choose browser replay bundle</b><span>{evidence?"Evidence loaded · tick "+(evidence.format==="synapsevm.stack-replay.v1"?evidence.receipt.tick:evidence.tick):"Model + input + pre-state + output commitments"}</span><input type="file" accept=".json" aria-label="Upload replay evidence" onChange={e=>{void upload(e.target.files?.[0],"browser");e.target.value="";}}/></label>{evidence?.format==="synapsevm.stack-replay.v1"&&<label className="vf-upload"><b>Matching .synapse Stack package</b><span>{filename||"Upload the exact compiled Stack"}</span><input type="file" accept=".synapse,.json" aria-label="Upload matching Stack" onChange={e=>void upload(e.target.files?.[0],"artifact")}/></label>}<button className="vf-secondary" disabled={busy} onClick={()=>void localExample()}>Generate local example</button>{evidence&&<button className="vf-secondary" onClick={()=>download("neural-event.replay.json",evidence)}>Download evidence</button>}<div className="vf-note">Replay starts from captured voltages and spikes. It compares the complete output and post-state, with no warm-up approximation.</div></>}
- {mode==="signed"&&<><h2>Inspect a signed module receipt.</h2><p>The local Rust verifier reads the matching input, pre-state, action and verifying key from an evidence directory.</p><button className="vf-secondary" disabled={busy} onClick={()=>void signedExample()}>Load bundled signed sample</button><label className="vf-upload compact"><b>Upload receipt JSON</b><input type="file" accept=".json" aria-label="Upload signed receipt" onChange={e=>{void upload(e.target.files?.[0],"signed");e.target.value="";}}/></label><label>Receipt JSON<textarea aria-label="Receipt JSON" rows={7} value={receipt} onChange={e=>{clear();setReceipt(e.target.value);}}/></label><label>Evidence directory<input value={bundle} onChange={e=>{clear();setBundle(e.target.value);}}/></label><label>Model path<input value={block} onChange={e=>{clear();setBlock(e.target.value);}}/></label><p className="vf-small">Paths are relative to the VM project. Start <code>npm run dev:validator</code> for Rust replay. A bundled verifying key does not authenticate device ownership.</p></>}
- {notice&&<p className="vf-notice">{notice}</p>}
- <button className="vf-primary" disabled={!canRun||busy} onClick={()=>void run()}>{busy?"Checking evidence…":mode==="artifact"?"Check artifact":"Run deterministic replay"}</button>
- {error&&<div className="vf-error" role="alert"><strong>Verification not completed</strong><p>{error}</p><span>No successful result is recorded for this attempt.</span></div>}
- <footer><b>Outside the control loop</b><p>These checks run after the event. No receipt or private input is sent to an external validator or blockchain.</p></footer>
- </section>
- <section className="vf-results" aria-live="polite"><header><div><span className="vf-kicker">VERIFICATION REPORT</span><h2>{report?report.outcome==="MATCH"?"Checked claims match.":report.outcome==="MISMATCH"?"Evidence does not match.":"Evidence is incomplete.":"Claims, one layer at a time."}</h2></div>{report&&<button className="vf-secondary" onClick={()=>download("verification-report.json",report)}>Export report</button>}</header>{report?<><p className="vf-scope">{report.scope}</p><div className="vf-subject"><b>{report.mode}</b><span>{report.subject}</span><small>Verifier · {report.verifierId}</small></div></>:<p className="vf-scope">Load evidence and run a check. Missing evidence stays unverified; field presence is never treated as proof.</p>}
- <div className="vf-layers">{layers.map((layer,i)=>{const checks=report?.claims.filter(c=>c.layer===layer)??[];return <section key={layer}><div className="vf-layer-title"><span>{String(i+1).padStart(2,"0")}</span><h3>{layer}</h3>{!report&&<small>Not checked</small>}</div>{checks.length?checks.map(c=><div className="vf-claim" key={c.id}><div><strong>{c.label}</strong><p>{c.detail}</p></div><span className={"vf-badge "+c.status}>{c.status==="match"?"MATCH":c.status==="fail"?"MISMATCH":c.status==="computed"?"COMPUTED":c.status==="unsupported"?"UNAVAILABLE":"NOT CHECKED"}</span></div>):<p className="vf-placeholder">{report?"No claim established for this layer.":"Awaiting evidence."}</p>}</section>;})}</div>
- {report&&<details className="vf-identities"><summary>Full identities and response</summary>{Object.entries(report.identities).map(([k,v])=><label key={k}>{k}<code>{v}</code></label>)}<pre>{JSON.stringify(rawResult??report,null,2)}</pre></details>}
- </section></div><div className="vf-boundary"><strong>What a replay match means</strong><p>The identified software reproduces the disclosed result from the supplied input and state. Sensor authenticity, biological validity, physical actuation and controller safety require separate evidence.</p></div>
- </div></Shell>;
+
+export default function VerifyPage() {
+  const [handoffNotice, setHandoffNotice] = useState("");
+  const [handoffError, setHandoffError] = useState("");
+
+  useEffect(() => {
+    const source = new URLSearchParams(window.location.search).get("evidence");
+    if (!source) return;
+
+    void (async () => {
+      try {
+        if (source === "compose") {
+          const raw = sessionStorage.getItem("synapsevm.verify.stack");
+          if (!raw) throw Error("No Compose evidence. Capture a Stack receipt first.");
+          const handoff = JSON.parse(raw) as { package: ComposePackage; evidence: ReplayBundle };
+          await putStack(handoff.package, "imported");
+          if (handoff.evidence?.format === "synapsevm.stack-replay.v1") {
+            await putReceipt(handoff.evidence, "captured", handoff.package.graph.name);
+          }
+          setHandoffNotice("Compose package and receipt saved to your shelf. Use Verify on a card.");
+        } else if (source === "simulator") {
+          const raw = sessionStorage.getItem("synapsevm.verify.evidence");
+          if (!raw) throw Error("No captured simulator evidence.");
+          const evidence = JSON.parse(raw) as ReplayBundle;
+          if (evidence?.format === "synapsevm.stack-replay.v1") {
+            await putReceipt(evidence, "captured");
+            setHandoffNotice("Simulator receipt saved to your shelf. Use Verify on the card.");
+          } else {
+            throw Error("Unsupported simulator evidence format for the shelf.");
+          }
+        }
+        window.history.replaceState(null, "", "/verify");
+      } catch (e) {
+        setHandoffError(String(e));
+      }
+    })();
+  }, []);
+
+  return (
+    <Shell wide>
+      <div className="vf">
+        <header className="vf-header">
+          <div>
+            <span className="vf-kicker">EVIDENCE WORKSPACE</span>
+            <h1>Know what was checked.</h1>
+            <p>
+              This browser keeps the Stacks you compiled and the receipts you captured. Open a card to inspect it, run
+              Simulate, or Verify — import more anytime from the library grid.
+            </p>
+          </div>
+        </header>
+
+        {(handoffError || handoffNotice) && (
+          <p role={handoffError ? "alert" : "status"} className={handoffError ? "vsh-error" : "vsh-notice"}>
+            {handoffError || handoffNotice}
+            <button
+              type="button"
+              onClick={() => {
+                setHandoffError("");
+                setHandoffNotice("");
+              }}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </p>
+        )}
+
+        <VerifyShelf />
+      </div>
+    </Shell>
+  );
 }
