@@ -113,6 +113,21 @@ export const IconPlay = (p: IconProps) => (
   </Svg>
 );
 
+export const IconDownload = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 2.4v7.4" />
+    <path d="M5.2 7.2 8 9.8l2.8-2.6" />
+    <path d="M3.2 12.4h9.6" />
+  </Svg>
+);
+
+export const IconSimulate = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="5.4" />
+    <path d="M6.6 5.6v4.8L11 8 6.6 5.6Z" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const IconRefresh = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12.8 7.2A4.8 4.8 0 1 1 11.4 3.6" />
@@ -124,5 +139,12 @@ export const IconPanel = (p: IconProps) => (
   <Svg {...p} strokeWidth={1.25}>
     <rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2" />
     <path d="M10.6 2.6v10.8" />
+  </Svg>
+);
+
+export const IconCopy = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+    <path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" />
   </Svg>
 );

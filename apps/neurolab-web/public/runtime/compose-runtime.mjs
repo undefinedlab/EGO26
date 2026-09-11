@@ -325,7 +325,7 @@ function checkGraph(value) {
     }
     const n = raw, d = DEFINITIONS[n.type];
     nodes.set(n.id, n);
-    if (n.params !== void 0 && (!record(n.params) || Object.entries(n.params).some(([k, v]) => !Number.isInteger(v) || (k === "hz" ? !RATES.includes(v) : !d.params[k] || v < d.params[k].min || v > d.params[k].max)))) fail("PARAMETER", "Unsupported parameter or value on " + n.id, n.id);
+    if (n.params !== void 0 && (!record(n.params) || Object.entries(n.params).some(([k, v]) => !Number.isInteger(v) || (k === "hz" ? !RATES.includes(v) : !Object.hasOwn(d.params, k) || v < d.params[k].min || v > d.params[k].max)))) fail("PARAMETER", "Unsupported parameter or value on " + n.id, n.id);
     if (n.module && (!d.module || !record(n.module) || typeof n.module.id !== "string" || !/^[-a-z0-9_]+\/[-a-z0-9_]+$/.test(n.module.id) || typeof n.module.version !== "string" || !/^\d+\.\d+\.\d+$/.test(n.module.version) || !/^sha256:[a-f0-9]{64}$/.test(n.module.digest))) fail("MODULE", "Invalid pinned module reference.", n.id);
     if (d.unsupported) blocked.push({ code: "ABI", node: n.id, message: n.id + ": " + d.unsupported });
   }
@@ -337,7 +337,7 @@ function checkGraph(value) {
       continue;
     }
     const a = e.from.split("."), b = e.to.split("."), src = nodes.get(a[0]), dst = nodes.get(b[0]);
-    const out = src && DEFINITIONS[src.type].outputs[a[1]], input = dst && DEFINITIONS[dst.type].inputs[b[1]];
+    const out = src && Object.hasOwn(DEFINITIONS[src.type].outputs, a[1]) && DEFINITIONS[src.type].outputs[a[1]], input = dst && Object.hasOwn(DEFINITIONS[dst.type].inputs, b[1]) && DEFINITIONS[dst.type].inputs[b[1]];
     if (a.length !== 2 || b.length !== 2 || !out || !input || out !== input) {
       fail("TYPE", e.from + " \u2192 " + e.to + ": incompatible ports.", b[0], i);
       continue;
@@ -353,7 +353,7 @@ function checkGraph(value) {
   for (const n of g.nodes) {
     const d = DEFINITIONS[n.type];
     for (const p of Object.keys(d.inputs)) if (!writers.has(n.id + "." + p)) fail("MISSING_INPUT", n.id + "." + p + " needs a source.", n.id);
-    if (d.family !== "actuator" && !g.edges.some((e) => e.from?.startsWith(n.id + "."))) warnings.push({ code: "UNUSED", node: n.id, message: n.id + " does not feed another node." });
+    if (d.family !== "actuator" && !g.edges.some((e) => record(e) && typeof e.from === "string" && e.from.startsWith(n.id + "."))) warnings.push({ code: "UNUSED", node: n.id, message: n.id + " does not feed another node." });
     if (n.type === "LoomGuard" && paramsFor(n).hz < 100) fail("RATE", "LoomGuard requires at least 100 Hz.", n.id);
   }
   if (!g.nodes.some((n) => DEFINITIONS[n.type].family === "actuator")) fail("ACTUATOR", "Add an actuator.");
@@ -404,7 +404,7 @@ async function buildStack(g, load) {
     lockfile[key] = { version: n.module?.version ?? b.version, digest: hash };
   }
   const executable = c.blocked.length === 0, runtimePlan = { order: c.order, clockHz: 1e3, periods: Object.fromEntries(graph.nodes.map((n) => [n.id, 1e3 / paramsFor(n).hz])), delivery: "LATEST", stateCommit: "AFTER_TICK", estimatedCriticalPathMs: c.estimatedMs, executable };
-  const verification = { policy: graph.policy, scope: "local-unsigned-replay" };
+  const verification = { policy: graph.policy, scope: "local-unsigned-replay", artifactVerifier: "synapsevm-artifact-verifier-v1", replayVerifier: "synapsevm-compose-verifier-v1", receiptFormat: "synapsevm.stack-receipt.v1", external: { protocol: "chainlink-cre", requestFormat: "synapsevm.cre-validation-request.v1", workflow: "synapsevm-neuroproof-v1", status: "not-run" } };
   const stackId = await digest(canonical({ runtime: ENGINE, graph: { nodes: graph.nodes, edges: graph.edges, deadlineMs: graph.deadlineMs, policy: graph.policy }, lockfile, runtimePlan, verification }));
   return { format: "synapsevm.compose-package.v1", manifest: { kind: "NeuroStack", name: graph.name, version: graph.version, stackId, runtime: ENGINE, executable, signature: null }, graph, lockfile, modules, runtimePlan, verification };
 }
@@ -420,7 +420,16 @@ async function importStack(raw) {
     if (typeof p.modules?.[key] !== "string") throw Error("Missing module " + key);
     return p.modules[key];
   });
-  if (canonical(p) !== canonical(rebuilt)) throw Error("Package integrity mismatch.");
+  if (canonical(p) !== canonical(rebuilt)) {
+    const legacyVerification = p?.verification;
+    const legacyShape = record(legacyVerification) && legacyVerification.policy === rebuilt.graph.policy && legacyVerification.scope === "local-unsigned-replay" && Object.keys(legacyVerification).sort().join(",") === "policy,scope";
+    if (!legacyShape) throw Error("Package integrity mismatch.");
+    const legacy = structuredClone(rebuilt);
+    legacy.verification = { policy: rebuilt.graph.policy, scope: "local-unsigned-replay" };
+    legacy.manifest.stackId = await digest(canonical({ runtime: ENGINE, graph: { nodes: legacy.graph.nodes, edges: legacy.graph.edges, deadlineMs: legacy.graph.deadlineMs, policy: legacy.graph.policy }, lockfile: legacy.lockfile, runtimePlan: legacy.runtimePlan, verification: legacy.verification }));
+    if (canonical(p) !== canonical(legacy)) throw Error("Package integrity mismatch.");
+    return legacy;
+  }
   return rebuilt;
 }
 

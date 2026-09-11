@@ -71,7 +71,7 @@
   z-index: 40;
   display: flex;
   justify-content: center;
-  padding: 1.85rem 14px 8px;
+  padding: 4.5rem 14px 8px;
   pointer-events: none;
 }
 .cmp-float-bar-inner {
@@ -79,13 +79,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   flex-wrap: wrap;
   width: max-content;
   max-width: min(96vw, 800px);
   box-sizing: border-box;
-  padding: 0.4rem 0.55rem;
-  border-radius: 12px;
+  padding: 0.22rem 0.4rem;
+  border-radius: 10px;
   border: 1px solid var(--cmp-chrome-border);
   background: var(--cmp-chrome-glass, rgba(255, 255, 255, 0.42));
   backdrop-filter: blur(18px) saturate(160%);
@@ -129,8 +129,8 @@
 .cmp-float-sep {
   display: inline-block;
   width: 1px;
-  height: 1.65rem;
-  margin: 0 0.15rem;
+  height: 1.35rem;
+  margin: 0 0.1rem;
   background: var(--cmp-chrome-sep);
   flex-shrink: 0;
 }
@@ -143,7 +143,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  height: 34px !important;
+  height: 30px !important;
   min-width: max-content;
   padding: 0 0.7rem !important;
   border-radius: 8px !important;
@@ -677,6 +677,11 @@
     left: 0;
     transform: none;
   }
+  .cmp-compile-bar .cmp-add-menu,
+  .cmp-compile-bar .cmp-compile-saved-menu {
+    left: 50%;
+    transform: translateX(-50%);
+  }
 }
 @media (max-width: 550px) {
   .cmp-mode-compose .cmp-center {
@@ -1196,6 +1201,8 @@
   max-width: min(96vw, 1080px);
 }
 .cmp-compile-bar .cmp-float-bar-inner {
+  position: relative;
+  z-index: 2;
   width: 100%;
   max-width: none;
   gap: 0.35rem;
@@ -1208,6 +1215,8 @@
   width: 100%;
   margin-top: 0.35rem;
   pointer-events: none;
+  position: relative;
+  z-index: 1;
 }
 .cmp-compile-status {
   display: inline-flex;
@@ -1241,25 +1250,33 @@
 .cmp-add-embedded .cmp-add-anchor {
   display: inline-flex;
   align-items: center;
-  height: 34px;
+  height: 30px;
   flex-shrink: 0;
 }
-.cmp-compile-bar .cmp-add-embedded .cmp-add-menu {
-  left: auto;
-  right: 0;
-  transform: none;
+/* Dropdowns center under the whole glass bar, not the trigger chip. */
+.cmp-compile-bar .cmp-add-embedded .cmp-add-anchor,
+.cmp-compile-bar .cmp-compile-file {
+  position: static;
 }
 .cmp-compile-file {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
 }
+.cmp-compile-bar .cmp-add-menu,
+.cmp-compile-bar .cmp-compile-saved-menu {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  top: calc(100% + 0.55rem);
+  z-index: 46;
+  width: min(22rem, calc(100vw - 2rem));
+}
 .cmp-compile-icon-btn {
   display: inline-grid !important;
   place-items: center;
-  width: 34px !important;
-  height: 34px !important;
+  width: 30px !important;
+  height: 30px !important;
   padding: 0 !important;
   border-radius: 8px !important;
   border: 1px solid var(--cmp-chrome-btn-border) !important;
@@ -1279,7 +1296,7 @@
 }
 .cmp-compile-filename {
   width: min(11rem, 28vw);
-  height: 34px;
+  height: 30px;
   padding: 0 0.65rem !important;
   border-radius: 8px !important;
   border: 1px solid var(--cmp-chrome-input-border) !important;
@@ -1297,7 +1314,7 @@
   padding: 0 0.9rem !important;
   border-color: color-mix(in srgb, var(--accent, #ff4d12) 55%, transparent) !important;
   background: var(--accent, #ff4d12) !important;
-  color: #0b0c0d !important;
+  color: #fff !important;
 }
 .cmp-compile-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
@@ -1308,14 +1325,14 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  height: 34px !important;
+  height: 30px !important;
   width: auto !important;
   min-width: 0 !important;
   padding: 0 0.85rem !important;
   border-radius: 8px !important;
   border: 1px solid var(--accent, #ff4d12) !important;
   background: var(--accent, #ff4d12) !important;
-  color: #0b0c0d !important;
+  color: #fff !important;
   font-family: var(--cmp-chrome-mono) !important;
   font-size: 10px !important;
   font-weight: 650 !important;
@@ -1333,7 +1350,7 @@
   border-color: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
 }
 .cmp-compile-run-btn.has-build {
-  box-shadow: inset 0 0 0 1px rgba(11, 12, 13, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 .cmp-compile-run-btn.is-busy {
   opacity: 0.75;
@@ -1341,7 +1358,7 @@
 [data-theme="light"] .cmp-compile-run-btn {
   background: var(--accent, #ff4d12) !important;
   border-color: var(--accent, #ff4d12) !important;
-  color: #0b0c0d !important;
+  color: #fff !important;
 }
 [data-theme="light"] .cmp-compile-run-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
@@ -1350,7 +1367,7 @@
   :root:not([data-theme="dark"]) .cmp-compile-run-btn {
     background: var(--accent, #ff4d12) !important;
     border-color: var(--accent, #ff4d12) !important;
-    color: #0b0c0d !important;
+    color: #fff !important;
   }
 }
 .cmp-canvas-tools {
@@ -1428,7 +1445,7 @@
 [data-theme="light"] .cmp-compile-primary {
   background: var(--accent, #ff4d12) !important;
   border-color: var(--accent, #ff4d12) !important;
-  color: #0b0c0d !important;
+  color: #fff !important;
 }
 [data-theme="light"] .cmp-compile-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
@@ -1437,7 +1454,7 @@
   :root:not([data-theme="dark"]) .cmp-compile-primary {
     background: var(--accent, #ff4d12) !important;
     border-color: var(--accent, #ff4d12) !important;
-    color: #0b0c0d !important;
+    color: #fff !important;
   }
   :root:not([data-theme="dark"]) .cmp-compile-primary:hover:not(:disabled) {
     background: color-mix(in srgb, var(--accent, #ff4d12) 88%, #fff) !important;
@@ -1447,7 +1464,7 @@
   border-color: rgba(143, 211, 174, 0.45) !important;
   color: #8fd3ae !important;
 }
-.cmp-compile-saved-menu { left: 0; transform: none; min-width: 14rem; }
+.cmp-compile-saved-menu { min-width: 14rem; }
 .cmp-compile-saved-row { display: flex; align-items: center; gap: 0.2rem; }
 .cmp-compile-saved-row .cmp-add-item { flex: 1; }
 .cmp-compile-delete {
@@ -1557,7 +1574,7 @@
   border-radius: 9px !important;
   border: 1px solid var(--accent, #ff4d12) !important;
   background: var(--accent, #ff4d12) !important;
-  color: #0b0c0d !important;
+  color: #fff !important;
   font-size: 12px !important;
   font-weight: 600;
   cursor: pointer;
@@ -1589,22 +1606,48 @@
   overflow-wrap: anywhere;
 }
 .cmp-compile-dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.45rem;
+  margin-top: 0.15rem;
 }
-.cmp-compile-dialog-actions button {
-  font-size: 11px !important;
-  padding: 6px 10px !important;
-  border-radius: 8px !important;
+.cmp-compile-dialog-action {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.65rem;
+  padding: 0.55rem 0.55rem !important;
+  border-radius: 10px !important;
   border: 1px solid var(--cmp-chrome-btn-border) !important;
   background: var(--cmp-chrome-btn-bg) !important;
   color: var(--cmp-chrome-text) !important;
+  font-size: 12px !important;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
-.cmp-compile-dialog-actions button.run:disabled {
+.cmp-compile-dialog-action svg {
+  flex-shrink: 0;
+}
+.cmp-compile-dialog-action:hover:not(:disabled) {
+  border-color: var(--cmp-chrome-btn-border-strong) !important;
+  background: color-mix(in srgb, var(--cmp-chrome-btn-bg) 70%, #fff 8%) !important;
+}
+.cmp-compile-dialog-action.run {
+  border-color: color-mix(in srgb, var(--accent, #ff4d12) 55%, var(--cmp-chrome-btn-border)) !important;
+  background: color-mix(in srgb, var(--accent, #ff4d12) 18%, var(--cmp-chrome-btn-bg)) !important;
+}
+.cmp-compile-dialog-action.run:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent, #ff4d12) 28%, var(--cmp-chrome-btn-bg)) !important;
+}
+.cmp-compile-dialog-action:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+.cmp-compile-dialog-action.is-saved {
+  border-color: rgba(74, 158, 110, 0.45) !important;
+  color: #3d8f62 !important;
 }
 
 .cmp-compile-buildstrip {
@@ -1618,34 +1661,6 @@
 }
 .cmp-compile-buildstrip code { font-size: 10px; color: var(--c-muted); }
 .cmp-compile-buildstrip button { font-size: 11px; padding: 6px 10px; }
-
-.cmp-wire-hint {
-  position: absolute;
-  top: 4.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 32;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 7px 12px;
-  border: 1px solid var(--cmp-chrome-border);
-  border-radius: 10px;
-  background: var(--cmp-chrome-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: var(--cmp-chrome-shadow), var(--cmp-chrome-inset);
-  font-size: 11px;
-  color: var(--cmp-chrome-muted);
-  pointer-events: auto;
-}
-.cmp-mode-compose .cmp-wire-hint {
-  color: var(--cmp-chrome-text);
-}
-.cmp-wire-hint button {
-  font-size: 11px;
-  padding: 5px 9px;
-}
 
 .cmp-view-controls {
   position: absolute;
@@ -1894,4 +1909,99 @@
   }
   .cmp-mode-compile .cmp-inspector--glass { margin: 0 12px 12px; max-height: none; }
   .cmp-compile-filename { width: 7.5rem; }
+}
+
+/* Verified compile result: logs, package proof, and explicit artifact actions. */
+.cmp-compile-dialog--build { width: min(620px, calc(100vw - 2rem)); }
+.cmp-compile-dialog--build header > div { display:grid; gap:.2rem; }
+.cmp-compile-dialog--build header .cmp-eyebrow { color:color-mix(in srgb,var(--accent,#ff4d12) 72%,#fff); font-size:9px; letter-spacing:.12em; }
+.cmp-compile-log {
+  display: grid;
+  gap: 0.35rem;
+  max-height: 200px;
+  overflow: auto;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--cmp-chrome-border) 70%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cmp-chrome-btn-bg) 55%, #fff 8%);
+}
+[data-theme="dark"] .cmp-compile-log,
+:root[data-theme="dark"] .cmp-compile-log {
+  background: rgba(255, 255, 255, 0.06);
+}
+.cmp-compile-log > div {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 0.45rem;
+  align-items: start;
+  font-size: 10px;
+  animation: cmp-compile-log-in 0.28s ease-out both;
+}
+.cmp-compile-log i {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cmp-chrome-muted);
+  font-style: normal;
+}
+.cmp-compile-log .is-pass {
+  color: #16a34a;
+}
+.cmp-compile-log .is-pass i {
+  background: rgba(34, 197, 94, 0.18);
+  color: #16a34a;
+}
+.cmp-compile-log .is-pass strong {
+  color: #15803d;
+}
+.cmp-compile-log .is-pass small {
+  color: color-mix(in srgb, #16a34a 70%, var(--cmp-chrome-muted));
+}
+[data-theme="dark"] .cmp-compile-log .is-pass,
+:root[data-theme="dark"] .cmp-compile-log .is-pass {
+  color: #86efac;
+}
+[data-theme="dark"] .cmp-compile-log .is-pass i,
+:root[data-theme="dark"] .cmp-compile-log .is-pass i {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+[data-theme="dark"] .cmp-compile-log .is-pass strong,
+:root[data-theme="dark"] .cmp-compile-log .is-pass strong {
+  color: #bbf7d0;
+}
+[data-theme="dark"] .cmp-compile-log .is-pass small,
+:root[data-theme="dark"] .cmp-compile-log .is-pass small {
+  color: color-mix(in srgb, #86efac 65%, transparent);
+}
+.cmp-compile-log .is-fail i { background:rgba(239,68,68,.16); color:#fca5a5; }
+.cmp-compile-log .is-running i { animation:cmp-compile-pulse 1s ease-in-out infinite alternate; }
+.cmp-compile-log span { display:grid; gap:2px; }
+.cmp-compile-log strong { font-weight:600; }
+.cmp-compile-log small { color:var(--cmp-chrome-muted); line-height:1.45; }
+@keyframes cmp-compile-pulse { to { background:rgba(255,77,18,.2); color:var(--accent,#ff4d12); } }
+@keyframes cmp-compile-log-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cmp-compile-proof { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; margin:.2rem 0; overflow:hidden; border:1px solid var(--cmp-chrome-menu-line,rgba(255,255,255,.09)); border-radius:9px; background:var(--cmp-chrome-menu-line,rgba(255,255,255,.09)); }
+.cmp-compile-proof > div { display:grid; gap:.3rem; min-width:0; padding:.65rem; background:var(--cmp-chrome-menu-bg,rgba(9,12,11,.94)); }
+.cmp-compile-proof small { color:var(--cmp-chrome-subtle); font-size:8px; text-transform:uppercase; letter-spacing:.06em; }
+.cmp-compile-proof strong,.cmp-compile-proof code { overflow:hidden; color:var(--cmp-chrome-text); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.cmp-compile-contract { margin:0!important; color:var(--cmp-chrome-muted)!important; font-size:10px!important; line-height:1.55!important; }
+.cmp-compile-contract code { color:var(--cmp-chrome-text); }
+.cmp-compile-dialog--build .cmp-compile-dialog-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cmp-compile-dialog--build .cmp-compile-dialog-actions .run {
+  margin-left: 0 !important;
+}
+@media (max-width:720px) {
+  .cmp-compile-proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cmp-compile-dialog--build .cmp-compile-dialog-actions {
+    grid-template-columns: 1fr;
+  }
 }

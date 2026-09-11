@@ -4,26 +4,17 @@
  * Compose action bar — import · open · save · compile (modal) · add
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { IconCheck, IconFolder, IconImport, IconPlay, IconSave } from "@/components/icons";
+import { IconCheck, IconDownload, IconFolder, IconImport, IconPlay, IconSave, IconSimulate } from "@/components/icons";
 
 export type CompilePreset = {
   name: string;
   draft: unknown;
 };
 
-export type CompileBuildInfo = {
-  hash: string;
-  executable: boolean;
-  shortHash: string;
-};
+export type CompileLog = { label: string; status: "running" | "pass" | "fail"; detail?: string };
+export type CompileBuildInfo = { fileName: string; hash: string; stackId: string; executable: boolean; nodes: number; connections: number; lockedModules: number; runtime: string };
 
-const PRESETS = [
-  { value: "shield", label: "Collision Shield" },
-  { value: "brake", label: "Emergency Brake" },
-  { value: "arbiter", label: "Safety Override" },
-  { value: "biopilot", label: "BioPilot" },
-  { value: "empty", label: "Empty canvas" },
-] as const;
+const PRESETS = [{ value: "brake", label: "Emergency Brake · end-to-end demo" }] as const;
 
 export function ComposeCompileBar({
   fileName,
@@ -41,7 +32,9 @@ export function ComposeCompileBar({
   trailing,
   status,
   build,
+  logs,
   onDownload,
+  onSaveToLibrary,
   onSimulate,
 }: {
   fileName: string;
@@ -52,14 +45,16 @@ export function ComposeCompileBar({
   onDeletePreset: (name: string) => void;
   onPresetTemplate: (value: string) => void;
   onImport: (file?: File) => void;
-  onCompile: () => void | Promise<void>;
+  onCompile: () => void | boolean | Promise<void | boolean>;
   busy: boolean;
   canCompile: boolean;
   saveOk?: boolean;
   trailing?: ReactNode;
   status?: ReactNode;
   build?: CompileBuildInfo | null;
+  logs: CompileLog[];
   onDownload?: () => void;
+  onSaveToLibrary?: () => void | boolean | Promise<void | boolean>;
   onSimulate?: () => void;
 }) {
   const [folderOpen, setFolderOpen] = useState(false);
@@ -67,7 +62,17 @@ export function ComposeCompileBar({
   const [showSave, setShowSave] = useState(false);
   const [showCompile, setShowCompile] = useState(false);
   const [sceneName, setSceneName] = useState("");
+  const [librarySaved, setLibrarySaved] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+
+  const openCompileModal = useCallback(() => {
+    setLibrarySaved(false);
+    setShowCompile(true);
+  }, []);
+
+  const closeCompileModal = useCallback(() => {
+    setShowCompile(false);
+  }, []);
 
   useEffect(() => {
     if (!folderOpen) return;
@@ -95,17 +100,30 @@ export function ComposeCompileBar({
   }, [folderOpen, folderView]);
 
   const submitSave = useCallback(() => {
-    const trim = sceneName.trim().replace(/\.io$/i, "");
+    const trim = sceneName.trim().replace(/\.(?:io|synapse)$/i, "");
     if (!trim) return;
     onSavePreset(trim);
-    onFileName(`${trim}.io`);
     setShowSave(false);
     setSceneName("");
-  }, [sceneName, onSavePreset, onFileName]);
+  }, [sceneName, onSavePreset]);
 
   const runCompile = useCallback(async () => {
+    setLibrarySaved(false);
     await onCompile();
   }, [onCompile]);
+
+  const proofReady =
+    !busy &&
+    !!build &&
+    logs.length > 0 &&
+    logs.every((entry) => entry.status === "pass");
+
+  const saveToVerifyLibrary = useCallback(async () => {
+    if (!onSaveToLibrary || !proofReady) return;
+    const ok = await onSaveToLibrary();
+    if (ok === false) return;
+    setLibrarySaved(true);
+  }, [onSaveToLibrary, proofReady]);
 
   return (
     <>
@@ -150,7 +168,7 @@ export function ComposeCompileBar({
                       <button type="button" className="cmp-add-back" onClick={() => setFolderView("root")}>
                         ← Back
                       </button>
-                      <span>Presets</span>
+                      <span>Included preset</span>
                     </div>
                     {PRESETS.map((p) => (
                       <button
@@ -160,7 +178,6 @@ export function ComposeCompileBar({
                         className="cmp-add-item"
                         onClick={() => {
                           onPresetTemplate(p.value);
-                          onFileName(`${p.value}.io`);
                           setFolderOpen(false);
                           setFolderView("root");
                         }}
@@ -172,7 +189,7 @@ export function ComposeCompileBar({
                 ) : (
                   <>
                     <div className="cmp-add-menu-head">
-                      <span>Library</span>
+                      <span>Workspaces</span>
                     </div>
                     <button
                       type="button"
@@ -181,7 +198,7 @@ export function ComposeCompileBar({
                       onClick={() => setFolderView("presets")}
                     >
                       <IconFolder size={14} />
-                      <span>Presets</span>
+                      <span>Included preset</span>
                       <em className="cmp-add-count">{PRESETS.length}</em>
                       <b>→</b>
                     </button>
@@ -228,7 +245,7 @@ export function ComposeCompileBar({
               value={fileName}
               onChange={(e) => onFileName(e.target.value)}
               spellCheck={false}
-              aria-label="Preset file name"
+              aria-label="Compiled artifact file name"
             />
           </div>
 
@@ -239,7 +256,7 @@ export function ComposeCompileBar({
             title={saveOk ? "Saved" : "Save preset"}
             aria-label={saveOk ? "Saved" : "Save preset"}
             onClick={() => {
-              const base = fileName.replace(/\.io$/i, "").trim();
+              const base = fileName.replace(/\.(?:io|synapse)$/i, "").trim();
               setSceneName(base && base !== "untitled" ? base : "");
               setShowSave(true);
             }}
@@ -256,10 +273,10 @@ export function ComposeCompileBar({
             aria-label="Compile"
             aria-haspopup="dialog"
             aria-expanded={showCompile}
-            onClick={() => setShowCompile(true)}
+            onClick={openCompileModal}
           >
             <IconPlay size={12} />
-            <span>{busy ? "Compiling…" : "Compile"}</span>
+            <span>Compile</span>
           </button>
 
           {trailing}
@@ -291,7 +308,7 @@ export function ComposeCompileBar({
                 if (e.key === "Enter") submitSave();
               }}
             />
-            <p className="cmp-compile-dialog-hint">Saved as {sceneName.trim() ? `${sceneName.trim().replace(/\.io$/i, "")}.io` : "name.io"}</p>
+            <p className="cmp-compile-dialog-hint">Saved as {sceneName.trim() ? `${sceneName.trim().replace(/\.(?:io|synapse)$/i, "")}.io` : "name.io"}</p>
             <footer>
               <button type="button" onClick={() => { setShowSave(false); setSceneName(""); }}>Cancel</button>
               <button type="button" className="cmp-compile-dialog-save" disabled={!sceneName.trim()} onClick={submitSave}>
@@ -303,7 +320,7 @@ export function ComposeCompileBar({
       ) : null}
 
       {showCompile ? (
-        <div className="cmp-compile-dialog-overlay" onClick={() => setShowCompile(false)}>
+        <div className="cmp-compile-dialog-overlay" onClick={closeCompileModal}>
           <div
             className="cmp-compile-dialog cmp-compile-dialog--build"
             onClick={(e) => e.stopPropagation()}
@@ -311,48 +328,86 @@ export function ComposeCompileBar({
             aria-labelledby="cmp-compile-title"
           >
             <header>
-              <h3 id="cmp-compile-title">Compile</h3>
-              <button type="button" aria-label="Close" onClick={() => setShowCompile(false)}>×</button>
+              <div><span className="cmp-eyebrow">COMPILE OUTPUT</span><h3 id="cmp-compile-title">{busy ? "Building package…" : build?.fileName ?? "Compile Stack"}</h3></div>
+              <button type="button" aria-label="Close" onClick={closeCompileModal}>×</button>
             </header>
-            <p className="cmp-compile-dialog-hint">
-              Build a package from the current graph. Trust claims stay outside the control loop.
-            </p>
+            <p className="cmp-compile-dialog-hint">Create a versioned package from the current graph, then check that the exported bytes can be imported and executed locally.</p>
             <button
               type="button"
               className="cmp-compile-dialog-primary"
               disabled={!canCompile || busy}
               onClick={() => void runCompile()}
             >
-              <IconPlay size={12} />
-              {busy ? "Compiling…" : "Compile Stack"}
+              <IconPlay size={14} />
+              {busy ? "Compiling…" : build ? "Recompile Stack" : "Compile Stack"}
             </button>
             {!canCompile && !busy ? (
               <p className="cmp-compile-dialog-warn">Fix graph issues before compiling.</p>
             ) : null}
-            {build ? (
+            {(logs.length || busy) ? (
               <div className="cmp-compile-dialog-build">
-                <span className={build.executable ? "good" : "cmp-warning"}>
-                  {build.executable ? "Built · executable" : "Built · source only"}
-                </span>
-                <code title={build.hash}>{build.shortHash}</code>
+                <div className="cmp-compile-log" role="log" aria-live="polite">
+                  {logs.map((entry, index) => (
+                    <div key={entry.label + index} className={`is-${entry.status}`}>
+                      <i aria-hidden>{entry.status === "pass" ? "✓" : entry.status === "fail" ? "×" : "·"}</i>
+                      <span>
+                        <strong>{entry.label}</strong>
+                        {entry.detail ? <small>{entry.detail}</small> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {proofReady && build ? (
+                  <>
+                    <div className="cmp-compile-proof">
+                      <div><small>Runtime</small><strong>{build.executable ? "Executable" : "Source only"}</strong></div>
+                      <div><small>Graph</small><strong>{build.nodes} nodes · {build.connections} wires</strong></div>
+                      <div><small>Locked models</small><strong>{build.lockedModules}</strong></div>
+                      <div><small>Package SHA-256</small><code title={build.hash}>{build.hash.slice(0, 14)}…</code></div>
+                    </div>
+                    <p className="cmp-compile-contract">
+                      This .synapse contains the typed graph, runtime plan, parameters, module locks and exact neural model bytes. It was re-imported and smoke-run against <code>{build.runtime}</code> before these actions were enabled.
+                    </p>
+                    <p className="cmp-compile-dialog-hint">These checks do not provide a publisher signature, an independent build, Chainlink CRE validation, or an onchain anchor.</p>
+                  </>
+                ) : null}
                 <div className="cmp-compile-dialog-actions">
-                  <button type="button" onClick={onDownload}>Download .synapse</button>
                   <button
                     type="button"
-                    className="run"
-                    disabled={!build.executable}
+                    className={`cmp-compile-dialog-action${librarySaved ? " is-saved" : ""}`}
+                    disabled={!proofReady}
+                    onClick={() => void saveToVerifyLibrary()}
+                  >
+                    {librarySaved ? <IconCheck size={16} /> : <IconSave size={16} />}
+                    <span>{librarySaved ? "Saved" : "Save"}</span>
+                  </button>
+                  <button type="button" className="cmp-compile-dialog-action" disabled={!proofReady} onClick={onDownload}>
+                    <IconDownload size={16} />
+                    <span>Download</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="cmp-compile-dialog-action run"
+                    disabled={!proofReady || !build?.executable}
                     onClick={() => {
-                      setShowCompile(false);
+                      closeCompileModal();
                       onSimulate?.();
                     }}
                   >
-                    Simulate →
+                    <IconSimulate size={16} />
+                    <span>Open</span>
                   </button>
                 </div>
+                {proofReady && !librarySaved ? (
+                  <p className="cmp-compile-dialog-hint">Save keeps this package on the Verify shelf in this browser — no publish page.</p>
+                ) : null}
+                {!proofReady && !busy ? (
+                  <p className="cmp-compile-dialog-hint">Save, Download and Open unlock after every check passes.</p>
+                ) : null}
               </div>
-            ) : (
-              <p className="cmp-compile-dialog-hint">No package built yet.</p>
-            )}
+            ) : !busy ? (
+              <p className="cmp-compile-dialog-hint">Compile Stack to run checks. Actions unlock after every local check passes.</p>
+            ) : null}
           </div>
         </div>
       ) : null}

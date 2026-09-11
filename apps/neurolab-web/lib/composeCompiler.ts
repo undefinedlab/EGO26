@@ -48,7 +48,7 @@ export function checkGraph(value:unknown){
  for(const raw of g.nodes){
   if(!record(raw)||typeof raw.id!=="string"||!idPattern.test(raw.id)||nodes.has(raw.id)||typeof raw.type!=="string"||!Object.hasOwn(DEFINITIONS,raw.type)){fail("NODE","Invalid, unknown or duplicate node.");continue;}
   const n=raw as ComposeNode,d=DEFINITIONS[n.type];nodes.set(n.id,n);
-  if(n.params!==undefined&&(!record(n.params)||Object.entries(n.params).some(([k,v])=>!Number.isInteger(v)||(k==="hz"?!RATES.includes(v):!d.params[k]||v<d.params[k].min||v>d.params[k].max))))fail("PARAMETER","Unsupported parameter or value on "+n.id,n.id);
+  if(n.params!==undefined&&(!record(n.params)||Object.entries(n.params).some(([k,v])=>!Number.isInteger(v)||(k==="hz"?!RATES.includes(v):!Object.hasOwn(d.params,k)||v<d.params[k].min||v>d.params[k].max))))fail("PARAMETER","Unsupported parameter or value on "+n.id,n.id);
   if(n.module&&(!d.module||!record(n.module)||typeof n.module.id!=="string"||!/^[-a-z0-9_]+\/[-a-z0-9_]+$/.test(n.module.id)||typeof n.module.version!=="string"||!/^\d+\.\d+\.\d+$/.test(n.module.version)||!/^sha256:[a-f0-9]{64}$/.test(n.module.digest)))fail("MODULE","Invalid pinned module reference.",n.id);
   if(d.unsupported)blocked.push({code:"ABI",node:n.id,message:n.id+": "+d.unsupported});
  }
@@ -57,7 +57,7 @@ export function checkGraph(value:unknown){
  for(const [i,e] of g.edges.entries()){
   if(!record(e)||typeof e.from!=="string"||typeof e.to!=="string"){fail("EDGE","Malformed connection.",undefined,i);continue;}
   const a=e.from.split("."),b=e.to.split("."),src=nodes.get(a[0]),dst=nodes.get(b[0]);
-  const out=src&&DEFINITIONS[src.type].outputs[a[1]],input=dst&&DEFINITIONS[dst.type].inputs[b[1]];
+  const out=src&&Object.hasOwn(DEFINITIONS[src.type].outputs,a[1])&&DEFINITIONS[src.type].outputs[a[1]],input=dst&&Object.hasOwn(DEFINITIONS[dst.type].inputs,b[1])&&DEFINITIONS[dst.type].inputs[b[1]];
   if(a.length!==2||b.length!==2||!out||!input||out!==input){fail("TYPE",e.from+" → "+e.to+": incompatible ports.",b[0],i);continue;}
   if(e.mode!==undefined&&e.mode!=="LATEST")fail("DELIVERY","Only explicit LATEST delivery is implemented.",undefined,i);
   if(writers.has(e.to))fail("WRITERS",e.to+" already has a source. Insert an arbiter.",b[0],i);
@@ -67,7 +67,7 @@ export function checkGraph(value:unknown){
  for(const n of g.nodes){
   const d=DEFINITIONS[n.type];
   for(const p of Object.keys(d.inputs))if(!writers.has(n.id+"."+p))fail("MISSING_INPUT",n.id+"."+p+" needs a source.",n.id);
-  if(d.family!=="actuator"&&!g.edges.some(e=>e.from?.startsWith(n.id+".")))warnings.push({code:"UNUSED",node:n.id,message:n.id+" does not feed another node."});
+  if(d.family!=="actuator"&&!g.edges.some(e=>record(e)&&typeof e.from==="string"&&e.from.startsWith(n.id+".")))warnings.push({code:"UNUSED",node:n.id,message:n.id+" does not feed another node."});
   if(n.type==="LoomGuard"&&paramsFor(n).hz<100)fail("RATE","LoomGuard requires at least 100 Hz.",n.id);
  }
  if(!g.nodes.some(n=>DEFINITIONS[n.type].family==="actuator"))fail("ACTUATOR","Add an actuator.");
@@ -87,14 +87,14 @@ export function checkGraph(value:unknown){
 }
 export function connectionProblem(g:ComposeGraph,from:string,to:string){
  const candidate={...g,edges:[...g.edges,{from,to,mode:"LATEST" as const}]};
- return checkGraph(candidate).errors.find(e=>e.edge===g.edges.length||e.code==="CYCLE")?.message??null;
+ return checkGraph(candidate).errors.find(e=>e.edge===g.edges.length||e.code==="CYCLE"||e.code==="LIMIT")?.message??null;
 }
 export function suggestAdapter(g:ComposeGraph,from:string,to:string){
  const [a,p]=from.split("."),[b,q]=to.split("."),src=g.nodes.find(n=>n.id===a),dst=g.nodes.find(n=>n.id===b);if(!src||!dst)return [];
  const out=DEFINITIONS[src.type].outputs[p],input=DEFINITIONS[dst.type].inputs[q];
  return Object.entries(DEFINITIONS).filter(([,d])=>d.family==="adapter"&&Object.values(d.inputs).includes(out)&&Object.values(d.outputs).includes(input)).map(([name])=>name);
 }
-export type ComposePackage={format:"synapsevm.compose-package.v1";manifest:{kind:"NeuroStack";name:string;version:string;stackId:string;runtime:typeof ENGINE;executable:boolean;signature:null};graph:ComposeGraph;lockfile:Record<string,{version:string;digest:string}>;modules:Record<string,string>;runtimePlan:{order:string[];clockHz:1000;periods:Record<string,number>;delivery:"LATEST";stateCommit:"AFTER_TICK";estimatedCriticalPathMs:number;executable:boolean};verification:{policy:ComposeGraph["policy"];scope:"local-unsigned-replay";};};
+export type ComposePackage={format:"synapsevm.compose-package.v1";manifest:{kind:"NeuroStack";name:string;version:string;stackId:string;runtime:typeof ENGINE;executable:boolean;signature:null};graph:ComposeGraph;lockfile:Record<string,{version:string;digest:string}>;modules:Record<string,string>;runtimePlan:{order:string[];clockHz:1000;periods:Record<string,number>;delivery:"LATEST";stateCommit:"AFTER_TICK";estimatedCriticalPathMs:number;executable:boolean};verification:{policy:ComposeGraph["policy"];scope:"local-unsigned-replay";artifactVerifier?:"synapsevm-artifact-verifier-v1";replayVerifier?:"synapsevm-compose-verifier-v1";receiptFormat?:"synapsevm.stack-receipt.v1";external?:{protocol:"chainlink-cre";requestFormat:"synapsevm.cre-validation-request.v1";workflow:"synapsevm-neuroproof-v1";status:"not-run"}};};
 export async function buildStack(g:ComposeGraph,load:(key:string)=>Promise<string>):Promise<ComposePackage>{
  const c=checkGraph(g);if(c.errors.length)throw Error(c.errors.map(e=>e.message).join("\n"));
  const graph:ComposeGraph={name:g.name,version:g.version,deadlineMs:g.deadlineMs,policy:g.policy,nodes:g.nodes.map(n=>({id:n.id,type:n.type,params:paramsFor(n),...n.module?{module:{...n.module}}:{}})).sort((a,b)=>a.id<b.id?-1:1),edges:g.edges.map(e=>({from:e.from,to:e.to,mode:"LATEST" as const})).sort((a,b)=>(a.from+">"+a.to)<(b.from+">"+b.to)?-1:1)};
@@ -103,7 +103,7 @@ export async function buildStack(g:ComposeGraph,load:(key:string)=>Promise<strin
  if(n.type==="LoomGuard"&&canonical(b.inputChannels.map(c=>c.name))!==canonical(["depth_front","depth_left","depth_right","loom"]))throw Error("LoomGuard requires the four-channel feature ABI.");
  modules[key]=raw;lockfile[key]={version:n.module?.version??b.version,digest:hash};}
  const executable=c.blocked.length===0,runtimePlan:ComposePackage["runtimePlan"]={order:c.order,clockHz:1000,periods:Object.fromEntries(graph.nodes.map(n=>[n.id,1000/paramsFor(n).hz])),delivery:"LATEST",stateCommit:"AFTER_TICK",estimatedCriticalPathMs:c.estimatedMs,executable};
- const verification:ComposePackage["verification"]={policy:graph.policy,scope:"local-unsigned-replay"};
+ const verification:ComposePackage["verification"]={policy:graph.policy,scope:"local-unsigned-replay",artifactVerifier:"synapsevm-artifact-verifier-v1",replayVerifier:"synapsevm-compose-verifier-v1",receiptFormat:"synapsevm.stack-receipt.v1",external:{protocol:"chainlink-cre",requestFormat:"synapsevm.cre-validation-request.v1",workflow:"synapsevm-neuroproof-v1",status:"not-run"}};
  const stackId=await digest(canonical({runtime:ENGINE,graph:{nodes:graph.nodes,edges:graph.edges,deadlineMs:graph.deadlineMs,policy:graph.policy},lockfile,runtimePlan,verification}));
  return {format:"synapsevm.compose-package.v1",manifest:{kind:"NeuroStack",name:graph.name,version:graph.version,stackId,runtime:ENGINE,executable,signature:null},graph,lockfile,modules,runtimePlan,verification};
 }
@@ -112,7 +112,15 @@ export async function importStack(raw:string):Promise<ComposePackage>{
  const p=JSON.parse(raw);if(p?.format==="synapsevm.source-package.v1"){const legacy=await importLegacy(raw);return buildStack({...legacy.graph,policy:"AUDIT"},async k=>legacy.modules[k]);}
  if(p?.format!=="synapsevm.compose-package.v1")throw Error("Unsupported Stack package.");
  const rebuilt=await buildStack(p.graph,async key=>{if(typeof p.modules?.[key]!=="string")throw Error("Missing module "+key);return p.modules[key];});
- if(canonical(p)!==canonical(rebuilt))throw Error("Package integrity mismatch.");
+ if(canonical(p)!==canonical(rebuilt)){
+  const legacyVerification=p?.verification;
+  const legacyShape=record(legacyVerification)&&legacyVerification.policy===rebuilt.graph.policy&&legacyVerification.scope==="local-unsigned-replay"&&Object.keys(legacyVerification).sort().join(",")==="policy,scope";
+  if(!legacyShape)throw Error("Package integrity mismatch.");
+  const legacy=structuredClone(rebuilt);legacy.verification={policy:rebuilt.graph.policy,scope:"local-unsigned-replay"};
+  legacy.manifest.stackId=await digest(canonical({runtime:ENGINE,graph:{nodes:legacy.graph.nodes,edges:legacy.graph.edges,deadlineMs:legacy.graph.deadlineMs,policy:legacy.graph.policy},lockfile:legacy.lockfile,runtimePlan:legacy.runtimePlan,verification:legacy.verification}));
+  if(canonical(p)!==canonical(legacy))throw Error("Package integrity mismatch.");
+  return legacy;
+ }
  return rebuilt;
 }
 export function template(kind="shield"):ComposeGraph {
