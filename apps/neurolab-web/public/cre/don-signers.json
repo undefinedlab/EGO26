@@ -1,0 +1,17 @@
+{
+  "format": "synapsevm.cre-don-signers.v1",
+  "workflow": "synapsevm-neuroproof-v1",
+  "_status": "UNCONFIGURED — no DON has been deployed yet.",
+  "_howToFill": [
+    "1. Deploy cre/neuroproof-workflow with the CRE CLI and register it.",
+    "2. Take the DON's signer addresses and config digest from the registry.",
+    "3. Put the addresses in `signers`, the digest in `configDigest`, set `quorum` to f+1.",
+    "4. Keep the Chainlink receiver digest scheme pinned as `hash-report-then-context`.",
+    "5. Record where the list came from in `source` so the pinning is auditable."
+  ],
+  "configDigest": "",
+  "signers": [],
+  "quorum": 0,
+  "source": "",
+  "scheme": "hash-report-then-context"
+}
