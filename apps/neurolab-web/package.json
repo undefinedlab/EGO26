@@ -5,9 +5,17 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p 3000"
+    "start": "next start -p 3000",
+    "test:graph": "node --experimental-strip-types lib/graphPartner.test.mjs",
+    "test:anchor": "node --experimental-strip-types lib/anchorMerkle.test.mjs",
+    "test:e2e": "npx --yes tsx scripts/e2e-compose-verify.mjs",
+    "hedera:whoami": "node --experimental-strip-types scripts/hedera-whoami.mjs",
+    "hedera:topic": "node --experimental-strip-types scripts/hedera-create-topic.mjs"
   },
   "dependencies": {
+    "@hashgraph/sdk": "^2.81.0",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "next": "^15.5.2",
