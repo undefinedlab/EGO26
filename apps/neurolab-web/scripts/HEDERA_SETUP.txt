@@ -1,0 +1,13 @@
+# Hedera HCS setup (SynapseVM receipt anchors)
+#
+# 1. Fund this EVM address on Hedera testnet (portal.hedera.com or anonymous faucet):
+#    0x6b3fa22c9e70243609f4f96a837c5d1ef2a53812
+# 2. Look up account id:
+#    https://testnet.mirrornode.hedera.com/api/v1/accounts/0x6b3fa22c9e70243609f4f96a837c5d1ef2a53812
+# 3. Set in apps/neurolab-web/.env.local:
+#    HEDERA_OPERATOR_ID=0.0.<id>
+# 4. Create topic (from apps/neurolab-web):
+#    npm run hedera:topic
+# 5. Set HEDERA_TOPIC_ID from the script output, restart `npm run dev`
+# 6. GET /api/anchor should return configured:true
+# 7. Import a matching CRE result on /verify — Hedera submit runs automatically
