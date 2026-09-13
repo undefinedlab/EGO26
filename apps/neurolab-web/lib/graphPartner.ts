@@ -1,9 +1,10 @@
 /**
  * Graph partner — discovery + audit index for SynapseVM validations.
  *
- * Prefer a live The Graph endpoint when NEXT_PUBLIC_SUBGRAPH_URL is set.
- * Otherwise use the local index (browser IndexedDB + /api/graph) so Verify
- * can complete the Anchor step end-to-end without a Studio deployment.
+ * Writes prefer the Sepolia NeuroRegistry relayer and wait for The Graph to
+ * index the resulting event. A local index remains available for offline
+ * development, but its rows are marked as local evidence rather than public
+ * inclusion.
  */
 
 export type GraphValidation = {
@@ -17,7 +18,7 @@ export type GraphValidation = {
   evidenceURI: string;
   timestamp: string;
   txHash: string;
-  source: "local" | "subgraph";
+  source: "local" | "chain" | "subgraph";
 };
 
 export type GraphNeuroStack = {
@@ -29,7 +30,7 @@ export type GraphNeuroStack = {
   active: boolean;
   name: string;
   version: string;
-  source: "local" | "subgraph";
+  source: "local" | "chain" | "subgraph";
 };
 
 export type GraphIndexSnapshot = {
@@ -297,6 +298,30 @@ export async function lookupValidation(requestHash: string): Promise<GraphValida
 }
 
 export async function anchorValidation(input: AnchorInput): Promise<GraphValidation> {
+  try {
+    const response = await fetch("/api/graph/anchor", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "validation", ...input }),
+      cache: "no-store",
+    });
+    const body = (await response.json()) as { validation?: GraphValidation; error?: string };
+    if (!response.ok || !body.validation) {
+      throw Error(body.error ?? `Sepolia registry write failed (${response.status}).`);
+    }
+    const snap = await readLocal();
+    await writeLocal({
+      ...snap,
+      validations: [
+        body.validation,
+        ...snap.validations.filter((row) => row.requestHash !== body.validation!.requestHash),
+      ],
+    });
+    return body.validation;
+  } catch (error) {
+    if (process.env.NEXT_PUBLIC_GRAPH_WRITE_MODE === "onchain") throw error;
+  }
+
   const snap = upsertValidation(await readLocal(), input);
   await writeLocal(snap);
   const row = findValidation(snap, input.requestHash)!;
@@ -318,6 +343,27 @@ export async function registerStackLocal(input: {
   name?: string;
   version?: string;
 }): Promise<GraphNeuroStack> {
+  try {
+    const response = await fetch("/api/graph/anchor", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "stack", ...input }),
+      cache: "no-store",
+    });
+    const body = (await response.json()) as { stack?: GraphNeuroStack; error?: string };
+    if (!response.ok || !body.stack) {
+      throw Error(body.error ?? `Sepolia registry write failed (${response.status}).`);
+    }
+    const snap = await readLocal();
+    await writeLocal({
+      ...snap,
+      stacks: [body.stack, ...snap.stacks.filter((row) => row.stackRoot !== body.stack!.stackRoot)],
+    });
+    return body.stack;
+  } catch (error) {
+    if (process.env.NEXT_PUBLIC_GRAPH_WRITE_MODE === "onchain") throw error;
+  }
+
   const snap = upsertStack(await readLocal(), input);
   await writeLocal(snap);
   try {

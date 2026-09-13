@@ -14,6 +14,23 @@ export const runtime = "nodejs";
 
 const FILE = path.join(process.cwd(), ".data", "graph-index.json");
 
+function rejectUnsafePost(request: Request): NextResponse | null {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return NextResponse.json({ error: "Content-Type must be application/json." }, { status: 415 });
+  }
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+  try {
+    if (new URL(origin).host !== new URL(request.url).host) {
+      return NextResponse.json({ error: "Cross-origin Graph request rejected." }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+  return null;
+}
+
 async function load(): Promise<GraphIndexSnapshot> {
   try {
     const raw = await readFile(FILE, "utf8");
@@ -45,6 +62,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const rejected = rejectUnsafePost(req);
+  if (rejected) return rejected;
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
