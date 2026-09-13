@@ -26,7 +26,7 @@ import {
   createCreValidationRequest,
   type CreResultAssessment,
 } from "@/lib/creValidation";
-import { verifyArtifact, verifyStackEvidence, withAnchorClaim, type LedgerAnchor, type VerificationReport } from "@/lib/verification";
+import { verifyArtifact, verifyStackEvidence, withAnchorClaim, withCreClaim, type LedgerAnchor, type VerificationReport } from "@/lib/verification";
 import { anchorReceiptToLedger, checkInclusion } from "@/lib/anchorClient";
 import { DRAFT_KEY, BUILD_KEY, draftFingerprint } from "@/lib/workflow";
 import { SIMULATE_HREF } from "@/lib/nav";
@@ -53,7 +53,7 @@ import {
 } from "@/lib/shelf";
 
 type Filter = "all" | "stack" | "receipt";
-type VerificationStage = "idle" | "local" | "cre" | "assessment" | "anchor" | "complete" | "failed";
+type VerificationStage = "idle" | "local" | "cre" | "submitted" | "assessment" | "anchor" | "complete" | "failed";
 type VerificationFailureStage = "local" | "cre" | "assessment" | "anchor";
 type LedgerStatus = { configured: boolean; network?: string; topicId?: string | null };
 
@@ -329,8 +329,10 @@ export function VerifyShelf() {
           setStackReg(row);
           notes.push(
             row.source === "subgraph"
-              ? `Graph partner indexed NeuroStack ${short(row.stackRoot)}.`
-              : `Graph partner registered NeuroStack ${short(row.stackRoot)}.`,
+              ? `Sepolia NeuroStack ${short(row.stackRoot)} was indexed by The Graph.`
+              : row.source === "chain"
+                ? `Sepolia confirmed NeuroStack ${short(row.stackRoot)}; The Graph indexing is pending.`
+                : `NeuroStack ${short(row.stackRoot)} was stored in the local Graph index.`,
           );
         } catch (e) {
           notes.push(`Graph partner skipped: ${e instanceof Error ? e.message : String(e)}`);
@@ -395,9 +397,20 @@ export function VerifyShelf() {
         result?: unknown;
         mode?: string;
         durationMs?: number;
+        accepted?: boolean;
+        workflowExecutionId?: string;
+        status?: string;
         error?: string;
         message?: string;
       };
+      if (responseBody.accepted && responseBody.workflowExecutionId) {
+        setVerificationLog((entries) => [
+          ...entries,
+          `Chainlink CRE accepted production execution ${responseBody.workflowExecutionId}. The DON result is asynchronous and has not been claimed as verified.`,
+        ]);
+        setVerificationStage("submitted");
+        return;
+      }
       if (!response.ok || !responseBody.result) {
         throw Error(responseBody.message ?? responseBody.error ?? `CRE verification failed (${response.status}).`);
       }
@@ -508,7 +521,13 @@ export function VerifyShelf() {
             : assessment.status === "REPORT_UNVERIFIED"
               ? `CRE report bound to this exact request, but not authenticated: ${assessment.donVerification?.reason ?? "DON signature verification is incomplete."}`
               : "CRE result imported and bound to this exact request. It has no authenticated report envelope.",
-          anchored ? "Graph partner indexed." : null,
+          anchored
+            ? anchored.source === "subgraph"
+              ? "Sepolia validation indexed by The Graph."
+              : anchored.source === "chain"
+                ? "Sepolia validation confirmed; The Graph indexing is pending."
+                : "Validation stored in the local Graph index."
+            : null,
           hederaOk ? "Hedera HCS anchor submitted." : null,
         ]
           .filter(Boolean)
@@ -521,7 +540,7 @@ export function VerifyShelf() {
     }
   }
 
-  /** Graph index + Hedera HCS after a CRE match. Soft-fails so verification still completes. */
+  /** Publish matching evidence to Sepolia/The Graph and Hedera HCS. */
   async function commitAnchors(
     item: ShelfItem,
     assessment: CreResultAssessment,
@@ -549,7 +568,13 @@ export function VerifyShelf() {
         )}`,
       });
       setAnchor(graph);
-      notes.push(`Graph partner indexed ${graph.requestHash.slice(0, 18)}…`);
+      notes.push(
+        graph.source === "subgraph"
+          ? `Sepolia validation ${graph.requestHash.slice(0, 18)}… was indexed by The Graph.`
+          : graph.source === "chain"
+            ? `Sepolia validation ${graph.requestHash.slice(0, 18)}… confirmed; The Graph indexing is pending.`
+            : `Validation ${graph.requestHash.slice(0, 18)}… was stored only in the local Graph index.`,
+      );
     } catch (e) {
       notes.push(`Graph partner skipped: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -874,9 +899,14 @@ function VerifyModal({
         { id: "anchor", label: "Register Graph + Hedera" },
       ];
   const order = ["idle", "local", "cre", "assessment", "anchor", "complete"] as const;
-  const stageIndex = order.indexOf(stage === "failed" ? "idle" : stage);
+  const stageIndex = stage === "submitted" ? 2 : order.indexOf(stage === "failed" ? "idle" : stage);
   const stepState = (id: string, index: number) => {
     if (id === "evidence") return "done";
+    if (stage === "submitted") {
+      if (["local", "cre"].includes(id)) return "done";
+      if (id === "assessment") return "active";
+      return "idle";
+    }
     if (stage === "failed") {
       const failureIndex = steps.findIndex((step) => step.id === failureAt);
       return index < failureIndex ? "done" : index === failureIndex ? "fail" : "idle";
@@ -893,6 +923,17 @@ function VerifyModal({
     if (stageIndex === target) return "active";
     return "idle";
   };
+  const assessedClaims = report
+    ? withAnchorClaim(
+        withCreClaim(report.claims, item.kind === "receipt" ? creResult : null),
+        anchor ?? stackRegistrationAsAnchor(stackReg),
+        ledger,
+      )
+    : [];
+  const hasFailedClaim = assessedClaims.some((claim) => claim.status === "fail");
+  const hasUnresolvedClaim = assessedClaims.some((claim) =>
+    ["computed", "missing", "unsupported"].includes(claim.status),
+  );
   return (
     <div className="vsh-detail-backdrop" role="dialog" aria-modal="true" aria-label={`Verify ${item.name}`}>
       <button type="button" className="vsh-detail-dismiss" onClick={onClose} aria-label="Close" />
@@ -911,7 +952,7 @@ function VerifyModal({
           <section className="vsh-run-panel" aria-label="Verification process">
             <div className="vsh-run-intro">
               <span>{receipt ? "LOCAL + CRE" : "ARTIFACT + LEDGER"}</span>
-              <strong>{stage === "idle" ? "Ready to verify" : busy ? "Verification running" : stage === "complete" ? "Verification complete" : "Verification stopped"}</strong>
+              <strong>{stage === "idle" ? "Ready to verify" : busy ? "Verification running" : stage === "submitted" ? "CRE execution accepted · awaiting DON result" : stage === "complete" ? (hasUnresolvedClaim ? "Verification complete · review trust gaps" : "Verification complete") : "Verification stopped"}</strong>
               <p>
                 {receipt
                   ? "This run replays the receipt, sends commitments through CRE, assesses the report, then anchors a matching batch root to The Graph and Hedera HCS."
@@ -925,7 +966,7 @@ function VerifyModal({
                   <li key={step.id} className={`is-${state}`}>
                     <i aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "×" : index + 1}</i>
                     <span>{step.label}</span>
-                    <small>{state === "active" ? "Running" : state === "done" ? "Done" : state === "fail" ? "Stopped" : "Waiting"}</small>
+                    <small>{state === "active" ? (stage === "submitted" ? "Awaiting DON" : "Running") : state === "done" ? "Done" : state === "fail" ? "Stopped" : "Waiting"}</small>
                   </li>
                 );
               })}
@@ -940,13 +981,13 @@ function VerifyModal({
 
           {report ? (
             <>
-              <div className={`vsh-verify-summary is-${report.outcome.toLowerCase()}`}>
+              <div className={`vsh-verify-summary is-${hasFailedClaim ? "mismatch" : hasUnresolvedClaim ? "incomplete" : "match"}`}>
                 <strong>
-                  {report.outcome === "MATCH"
-                    ? "Checked claims match."
-                    : report.outcome === "MISMATCH"
-                      ? "Evidence does not match."
-                      : "Evidence is incomplete."}
+                  {hasFailedClaim
+                    ? "Evidence does not match."
+                    : hasUnresolvedClaim
+                      ? "Verification completed with unresolved trust claims."
+                      : "All trust claims match."}
                 </strong>
                 <p>{report.scope}</p>
                 <small>
@@ -961,7 +1002,7 @@ function VerifyModal({
               )}
 
               <ul className="vsh-verify-points">
-                {withAnchorClaim(report.claims, anchor ?? stackRegistrationAsAnchor(stackReg), ledger).map((c) => (
+                {assessedClaims.map((c) => (
                   <li key={c.id} className={`is-${c.status}`}>
                     <i aria-hidden="true">{claimMark(c.status)}</i>
                     <div>
@@ -977,7 +1018,7 @@ function VerifyModal({
           ) : null}
         </div>
         <footer className="vsh-detail-foot vsh-verify-foot">
-          <span>{receipt ? "Uses the signed-in CRE CLI on this machine" : "Local artifact check, then Graph + Hedera"}</span>
+          <span>{receipt ? "Authenticated local CRE simulation; production DON deployment access is pending" : "Local artifact check, then Sepolia/The Graph + Hedera"}</span>
           <button type="button" className="vsh-start-verification" onClick={() => void onStart()} disabled={busy}>
             {busy ? "Verification running…" : stage === "idle" ? "Start verification" : "Run verification again"}
           </button>
@@ -1158,7 +1199,11 @@ function InspectModal({
                   <p>
                     Indexed validation {short(anchor.requestHash)}. Inclusion id{" "}
                     <code>{anchor.txHash}</code>
-                    {anchor.source === "subgraph" ? " (The Graph)." : " (local Graph partner index)."}
+                    {anchor.source === "subgraph"
+                      ? " (indexed by The Graph)."
+                      : anchor.source === "chain"
+                        ? " (confirmed on Sepolia; Graph indexing pending)."
+                        : " (local Graph partner index only)."}
                   </p>
                 </section>
               ) : null}
@@ -1287,7 +1332,7 @@ function StackTrustGraph({
   const localOk = localReport?.outcome === "MATCH";
   const localFail = localReport?.outcome === "MISMATCH";
   const onGraph = Boolean(stackReg);
-  const onPublicGraph = stackReg?.source === "subgraph";
+  const onPublicGraph = stackReg?.source === "subgraph" || stackReg?.source === "chain";
   const onLedger = Boolean(ledger);
   const mirror = ledger
     ? `https://${ledger.network === "mainnet" ? "mainnet-public" : ledger.network}.mirrornode.hedera.com/api/v1/topics/${ledger.topicId}/messages/${ledger.sequenceNumber}`
@@ -1309,7 +1354,7 @@ function StackTrustGraph({
           <i>2</i><b>Canonical identity</b><small>{localFail ? "failed" : localOk ? "recomputed" : "pending"}</small>
         </li>
         <li className={onPublicGraph ? "is-done" : onGraph || localOk ? "is-pending" : "is-idle"}>
-          <i>3</i><b>Graph registry</b><small>{onGraph ? (stackReg!.source === "subgraph" ? "indexed" : "local index") : "not registered"}</small>
+          <i>3</i><b>Graph registry</b><small>{onGraph ? (stackReg!.source === "subgraph" ? "indexed" : stackReg!.source === "chain" ? "Sepolia confirmed" : "local index") : "not registered"}</small>
         </li>
         <li className={onLedger ? "is-done" : localOk ? "is-pending" : "is-idle"}>
           <i>4</i><b>Hedera HCS</b><small>{onLedger ? `seq ${ledger!.sequenceNumber}` : "not anchored"}</small>
@@ -1364,7 +1409,7 @@ function TrustGraph({
         : "Result only";
   const onLedger = Boolean(ledger);
   const onGraph = Boolean(anchor);
-  const onPublicGraph = anchor?.source === "subgraph";
+  const onPublicGraph = anchor?.source === "subgraph" || anchor?.source === "chain";
   const publiclyAnchored = onLedger || onPublicGraph;
   const anchorDetail = !creResult
     ? "await CRE"
@@ -1373,7 +1418,9 @@ function TrustGraph({
       : onGraph
         ? anchor!.source === "subgraph"
           ? "indexed"
-          : "local index"
+          : anchor!.source === "chain"
+            ? "Sepolia confirmed"
+            : "local index"
         : creResult.outcome === "COMMITMENTS_MATCH"
           ? "ready"
           : "not checked";

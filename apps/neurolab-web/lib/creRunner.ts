@@ -3,6 +3,7 @@ import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { runCreGateway, type CreGatewayRun } from "./creGateway";
 
 const MAX_OUTPUT_BYTES = 2_000_000;
 const RUN_TIMEOUT_MS = 60_000;
@@ -156,4 +157,12 @@ export async function runCreSimulation(request: unknown): Promise<CreSimulationR
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }
+}
+
+export function creMode(): "simulation" | "gateway" {
+  return process.env.SYNAPSEVM_CRE_MODE?.trim().toLowerCase() === "gateway" ? "gateway" : "simulation";
+}
+
+export async function runCreVerification(request: unknown): Promise<CreSimulationRun | CreGatewayRun> {
+  return creMode() === "gateway" ? runCreGateway(request) : runCreSimulation(request);
 }

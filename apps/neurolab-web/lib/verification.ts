@@ -46,8 +46,9 @@ export type LedgerAnchor = {
  * A ledger anchor is public inclusion — a consensus timestamp anyone can fetch
  * from a mirror node without our software or an account. That earns `match`.
  *
- * A subgraph row reflects an indexed on-chain transaction, so it earns `match`
- * too.
+ * A chain row reflects a confirmed Sepolia transaction, and a subgraph row
+ * reflects that same transaction after The Graph has indexed it. Both are
+ * public inclusion; the latter also proves the discovery layer is current.
  *
  * A Graph *partner index* row is a local record we wrote ourselves. It is
  * useful bookkeeping, but calling it public inclusion would be the exact
@@ -93,11 +94,74 @@ export function withAnchorClaim(
     ];
   }
 
+  if (anchor.source === "chain") {
+    return [
+      ...rest,
+      anchorClaim(
+        "match",
+        `Sepolia confirmed validation ${anchor.requestHash.slice(0, 18)}… (score ${anchor.score}) in transaction ${anchor.txHash}. The Graph has not indexed the event yet.`,
+      ),
+    ];
+  }
+
   return [
     ...rest,
     anchorClaim(
       "computed",
       `Recorded in our own Graph partner index (score ${anchor.score}, id ${anchor.txHash}). That is a local record, not public inclusion — anchor the batch to a ledger, or deploy NeuroRegistry and the subgraph, for a claim someone else can check.`,
+    ),
+  ];
+}
+
+/**
+ * Replace the default external-validation claim with the strongest CRE result
+ * that was actually checked. An exact simulation report is evidence, but it is
+ * not an authenticated DON result until its registry signer quorum verifies.
+ */
+export function withCreClaim(
+  claims: Claim[],
+  cre: {
+    status: "RESULT_UNAUTHENTICATED" | "REPORT_UNVERIFIED" | "REPORT_VERIFIED";
+    outcome: "COMMITMENTS_MATCH" | "MISMATCH";
+    donVerification?: { reason?: string };
+  } | null,
+): Claim[] {
+  if (!cre) return claims;
+  const rest = claims.filter((claim) => claim.id !== "external");
+  const claim = (status: Claim["status"], detail: string): Claim => ({
+    id: "external",
+    layer: "External",
+    label: "Chainlink CRE validation",
+    status,
+    detail,
+  });
+
+  if (cre.outcome === "MISMATCH") {
+    return [
+      ...rest,
+      claim(
+        "fail",
+        cre.status === "REPORT_VERIFIED"
+          ? "An authenticated CRE report was returned, but its commitments do not match this receipt."
+          : "CRE returned a result, but its commitments do not match this receipt.",
+      ),
+    ];
+  }
+
+  if (cre.status === "REPORT_VERIFIED") {
+    return [
+      ...rest,
+      claim("match", "The CRE report payload matches this receipt and its DON signer quorum verified."),
+    ];
+  }
+
+  return [
+    ...rest,
+    claim(
+      "computed",
+      cre.status === "REPORT_UNVERIFIED"
+        ? `CRE returned an exact report payload for this receipt. The simulation signer set is not authenticated by the production DON registry. ${cre.donVerification?.reason ?? ""}`.trim()
+        : "CRE returned an exact result for this receipt without an authenticated DON report.",
     ),
   ];
 }
