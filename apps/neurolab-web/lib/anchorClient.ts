@@ -23,6 +23,8 @@ export type AnchorResult = {
   topicSequenceNumber?: string | null;
   consensusTimestamp?: string | null;
   transactionId?: string | null;
+  reused?: boolean;
+  mirrorVerified?: boolean;
   reason?: string;
   error?: string;
 };
@@ -153,6 +155,9 @@ export async function anchorReceiptToLedger(
     // Unconfigured is expected in local/dev without keys — soft miss.
     if (result.reason?.includes("not configured")) return null;
     throw Error(result.error ?? result.reason ?? "Hedera anchor failed.");
+  }
+  if (!result.mirrorVerified) {
+    throw Error("Hedera reached consensus, but the public mirror has not confirmed the exact anchor payload yet. Retry verification to reuse and confirm the same message.");
   }
   return {
     network: result.network ?? "testnet",

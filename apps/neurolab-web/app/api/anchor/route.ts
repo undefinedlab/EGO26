@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { anchorMessage, buildBatch } from "@/lib/anchorMerkle";
 import { parseOperatorKey } from "@/lib/hederaKey";
 
@@ -19,8 +22,138 @@ import { parseOperatorKey } from "@/lib/hederaKey";
  */
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 type Receipt = { hash: string; sequence: number };
+type AnchorMessage = ReturnType<typeof anchorMessage>;
+type AnchorRecord = {
+  network: string;
+  topicId: string;
+  topicSequenceNumber: string;
+  consensusTimestamp: string;
+  transactionId: string;
+  message: AnchorMessage;
+  anchoredAt: string;
+};
+type AnchorIndex = { format: "synapsevm.hedera-anchor-index.v1"; anchors: Record<string, AnchorRecord> };
+
+const MAX_BODY_BYTES = 2_000_000;
+const EMPTY_INDEX: AnchorIndex = { format: "synapsevm.hedera-anchor-index.v1", anchors: {} };
+let anchorTail: Promise<void> = Promise.resolve();
+
+function serialize<T>(run: () => Promise<T>): Promise<T> {
+  const next = anchorTail.then(run, run);
+  anchorTail = next.then(() => undefined, () => undefined);
+  return next;
+}
+
+function indexPath() {
+  if (process.env.SYNAPSEVM_ANCHOR_INDEX_PATH) return process.env.SYNAPSEVM_ANCHOR_INDEX_PATH;
+  const cwd = process.cwd();
+  const webRoot = cwd.endsWith(`${join("apps", "neurolab-web")}`) ? cwd : join(cwd, "apps", "neurolab-web");
+  return join(webRoot, ".data", "hedera-anchor-index.json");
+}
+
+async function readIndex(): Promise<AnchorIndex> {
+  try {
+    const parsed = JSON.parse(await readFile(indexPath(), "utf8")) as AnchorIndex;
+    return parsed?.format === EMPTY_INDEX.format && parsed.anchors ? parsed : structuredClone(EMPTY_INDEX);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return structuredClone(EMPTY_INDEX);
+    throw error;
+  }
+}
+
+async function writeIndex(index: AnchorIndex) {
+  const target = indexPath();
+  await mkdir(dirname(target), { recursive: true });
+  const temporary = `${target}.${process.pid}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(index, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  await rename(temporary, target);
+}
+
+function anchorKey(network: string, topicId: string, message: AnchorMessage) {
+  return createHash("sha256")
+    .update(`${network}\n${topicId}\n${JSON.stringify(message)}`)
+    .digest("hex");
+}
+
+function mirrorBase(network: string) {
+  return `https://${network === "mainnet" ? "mainnet-public" : network}.mirrornode.hedera.com/api/v1`;
+}
+
+function sameMessage(actual: unknown, expected: AnchorMessage): boolean {
+  if (!actual || typeof actual !== "object") return false;
+  const row = actual as Record<string, unknown>;
+  return row.format === expected.format &&
+    row.deviceId === expected.deviceId &&
+    row.stackId === expected.stackId &&
+    row.receiptRoot === expected.receiptRoot &&
+    row.firstSequence === expected.firstSequence &&
+    row.lastSequence === expected.lastSequence &&
+    row.count === expected.count;
+}
+
+async function mirrorConfirms(record: AnchorRecord): Promise<boolean> {
+  const url = `${mirrorBase(record.network)}/topics/${record.topicId}/messages/${record.topicSequenceNumber}`;
+  const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+  if (!response.ok) return false;
+  const body = (await response.json()) as { message?: string };
+  if (!body.message) return false;
+  try {
+    return sameMessage(JSON.parse(Buffer.from(body.message, "base64").toString("utf8")), record.message);
+  } catch {
+    return false;
+  }
+}
+
+async function waitForMirror(record: AnchorRecord, timeoutMs = 30_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    try {
+      if (await mirrorConfirms(record)) return true;
+    } catch {
+      // Consensus succeeded; the public mirror can lag briefly.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+  } while (Date.now() < deadline);
+  return false;
+}
+
+function responseFor(record: AnchorRecord, batch: ReturnType<typeof buildBatch>, reused: boolean, mirrorVerified: boolean) {
+  return {
+    anchored: true,
+    network: record.network,
+    topicId: record.topicId,
+    receiptRoot: batch.receiptRoot,
+    firstSequence: batch.firstSequence,
+    lastSequence: batch.lastSequence,
+    count: batch.count,
+    topicSequenceNumber: record.topicSequenceNumber,
+    consensusTimestamp: record.consensusTimestamp,
+    transactionId: record.transactionId,
+    message: record.message,
+    reused,
+    mirrorVerified,
+  };
+}
+
+function rejectUnsafePost(request: Request): NextResponse | null {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().startsWith("application/json")) {
+    return NextResponse.json({ error: "Content-Type must be application/json." }, { status: 415 });
+  }
+  const origin = request.headers.get("origin");
+  if (!origin) return null;
+  try {
+    if (new URL(origin).host !== new URL(request.url).host) {
+      return NextResponse.json({ error: "Cross-origin anchor request rejected." }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+  return null;
+}
 
 function config() {
   const operatorId = process.env.HEDERA_OPERATOR_ID;
@@ -41,6 +174,7 @@ export async function GET() {
     configured: missing.length === 0,
     network,
     topicId: topicId ?? null,
+    idempotency: "persistent-local",
     missing,
     hint: missing.length
       ? "Create a testnet account at portal.hedera.com, create a topic, then set these."
@@ -49,11 +183,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const rejected = rejectUnsafePost(request);
+  if (rejected) return rejected;
   const { operatorId, operatorKey, topicId, network, missing } = config();
 
   let body: { receipts?: Receipt[]; deviceId?: string; stackId?: string };
   try {
-    body = (await request.json()) as typeof body;
+    const raw = await request.text();
+    if (Buffer.byteLength(raw, "utf8") > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Anchor request exceeds 2 MB." }, { status: 413 });
+    }
+    body = JSON.parse(raw) as typeof body;
   } catch {
     return NextResponse.json({ error: "JSON body required." }, { status: 400 });
   }
@@ -70,7 +210,12 @@ export async function POST(request: Request) {
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
   }
-  const message = anchorMessage(batch, body.deviceId ?? "unspecified", body.stackId ?? "unspecified");
+  const deviceId = String(body.deviceId ?? "unspecified").trim();
+  const stackId = String(body.stackId ?? "unspecified").trim();
+  if (!deviceId || deviceId.length > 256 || !stackId || stackId.length > 256) {
+    return NextResponse.json({ error: "deviceId and stackId must contain 1-256 characters." }, { status: 400 });
+  }
+  const message = anchorMessage(batch, deviceId, stackId);
 
   if (missing.length) {
     return NextResponse.json(
@@ -88,35 +233,48 @@ export async function POST(request: Request) {
   }
 
   try {
-    /* Imported lazily so an unconfigured deployment never pays to load the SDK. */
-    const { Client, PrivateKey, TopicMessageSubmitTransaction } = await import("@hashgraph/sdk");
-    const client =
-      network === "mainnet" ? Client.forMainnet() : network === "previewnet" ? Client.forPreviewnet() : Client.forTestnet();
-    client.setOperator(operatorId!, parseOperatorKey(PrivateKey, operatorKey!).key);
+    const result = await serialize(async () => {
+      const key = anchorKey(network, topicId!, message);
+      const index = await readIndex();
+      const existing = index.anchors[key];
+      if (existing) {
+        return responseFor(existing, batch, true, await waitForMirror(existing));
+      }
 
-    const submit = await new TopicMessageSubmitTransaction({
-      topicId: topicId!,
-      message: JSON.stringify(message),
-    }).execute(client);
-
-    const receipt = await submit.getReceipt(client);
-    const record = await submit.getRecord(client);
-    client.close();
-
-    return NextResponse.json({
-      anchored: true,
-      network,
-      topicId,
-      receiptRoot: batch.receiptRoot,
-      firstSequence: batch.firstSequence,
-      lastSequence: batch.lastSequence,
-      count: batch.count,
-      /** Where this batch sits in the topic's own ordered history. */
-      topicSequenceNumber: receipt.topicSequenceNumber?.toString() ?? null,
-      consensusTimestamp: record.consensusTimestamp?.toString() ?? null,
-      transactionId: submit.transactionId?.toString() ?? null,
-      message,
+      /* Imported lazily so an unconfigured deployment never loads the SDK. */
+      const { Client, PrivateKey, TopicMessageSubmitTransaction } = await import("@hashgraph/sdk");
+      const client = network === "mainnet"
+        ? Client.forMainnet()
+        : network === "previewnet"
+          ? Client.forPreviewnet()
+          : Client.forTestnet();
+      try {
+        client.setOperator(operatorId!, parseOperatorKey(PrivateKey, operatorKey!).key);
+        const submit = await new TopicMessageSubmitTransaction({
+          topicId: topicId!,
+          message: JSON.stringify(message),
+        }).execute(client);
+        const receipt = await submit.getReceipt(client);
+        const transactionRecord = await submit.getRecord(client);
+        const sequence = receipt.topicSequenceNumber?.toString();
+        if (!sequence) throw Error("Hedera returned no topic sequence number.");
+        const stored: AnchorRecord = {
+          network,
+          topicId: topicId!,
+          topicSequenceNumber: sequence,
+          consensusTimestamp: transactionRecord.consensusTimestamp?.toString() ?? "",
+          transactionId: submit.transactionId?.toString() ?? "",
+          message,
+          anchoredAt: new Date().toISOString(),
+        };
+        index.anchors[key] = stored;
+        await writeIndex(index);
+        return responseFor(stored, batch, false, await waitForMirror(stored));
+      } finally {
+        client.close();
+      }
     });
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return NextResponse.json(
       { anchored: false, error: e instanceof Error ? e.message : String(e), receiptRoot: batch.receiptRoot },
