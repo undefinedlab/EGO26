@@ -26,10 +26,10 @@ function Viz({ children }: { children: ReactNode }) {
 export const VizCompute = () => (
   <Viz>
     <rect x="2" y="24" width="8" height="6" rx="1.5" />
-    <rect x="13" y="19" width="8" height="11" rx="1.5" />
-    <rect x="24" y="12" width="8" height="18" rx="1.5" />
-    <rect x="35" y="4" width="8" height="26" rx="1.5" className="viz-accent" />
-    <rect x="46" y="-4" width="8" height="34" rx="1.5" className="viz-accent" />
+    <rect x="13" y="20" width="8" height="10" rx="1.5" />
+    <rect x="24" y="14" width="8" height="16" rx="1.5" />
+    <rect x="35" y="7" width="8" height="23" rx="1.5" className="viz-accent" />
+    <rect x="46" y="1" width="8" height="29" rx="1.5" className="viz-accent" />
   </Viz>
 );
 

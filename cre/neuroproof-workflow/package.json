@@ -1,7 +1,18 @@
 {
   "name": "@synapsevm/cre-neuroproof",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "main": "workflow.ts"
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit",
+    "compile": "bunx cre-compile workflow.ts dist/neuroproof.wasm"
+  },
+  "dependencies": {
+    "@chainlink/cre-sdk": "1.20.1",
+    "@noble/hashes": "1.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
 }

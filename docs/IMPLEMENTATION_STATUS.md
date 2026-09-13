@@ -21,7 +21,7 @@ Existing model releases are not regenerated or republished. The old manifest dig
 2. Restore scientific source revision, validate licensing, reproduce the actual derivation; publish measured ScenarioPack baselines and operating envelopes.
 3. Git-backed forks/history/NeuroDiff and immutable releases, OCI artifacts/referrers, Sigstore signatures, SLSA/SPDX attachments. No registry or publisher signature exists yet.
 4. Hardware DeploymentBundle validation, real calibration, capability sandboxing, staged activation/rollback, advisories and key lifecycle.
-5. CRE confidential replay, onchain anchoring and index integration after the core loop. Currently unavailable in UI.
+5. CRE confidential replay remains optional. Local Graph partner anchoring + Verify Anchor step are wired; on-chain NeuroRegistry deploy + The Graph Studio publish still needed for public inclusion.
 
 ## Validation commands
 

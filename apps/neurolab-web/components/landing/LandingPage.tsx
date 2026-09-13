@@ -182,13 +182,13 @@ function SlideHead({
   title,
   lead,
 }: {
-  kicker: string;
+  kicker?: string;
   title: string;
   lead?: string;
 }) {
   return (
     <header className="deck-head">
-      <span className="kicker">{kicker}</span>
+      {kicker ? <span className="kicker">{kicker}</span> : null}
       <h2>{title}</h2>
       {lead ? <p className="deck-lead">{lead}</p> : null}
     </header>
@@ -313,7 +313,6 @@ export function LandingPage() {
       children: (
         <Frame className="deck-frame--cluster">
           <SlideHead
-            kicker="Why now"
             title="The pieces exist. The software layer does not."
           />
 
@@ -379,9 +378,6 @@ export function LandingPage() {
               ))}
             </div>
           </div>
-          <p className="cluster-foot">
-            One path from neural module to replayable receipt — without a cloud in the reflex loop.
-          </p>
         </Frame>
       ),
     },

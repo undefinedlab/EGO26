@@ -12,20 +12,16 @@ export function FeatureBento() {
     <div className="feature-bento" aria-label="Core features">
       <div className="feature-bento-stage">
         <div className="fb-slot fb-slot--core" style={{ "--d": 1 } as CSSProperties}>
-          <Tilt className="fb-card fb-card--core" max={5}>
+          <Tilt className="fb-card fb-card--core glass" max={5}>
             <div className="fb-core-visual" aria-hidden>
               <span className="fb-core-orb fb-core-orb--a" />
               <span className="fb-core-orb fb-core-orb--b" />
               <span className="fb-core-grid" />
             </div>
             <div className="fb-core-copy">
-              <h3>NeuroBlocks · NeuroStacks</h3>
-              <p>Reusable neural functions with typed I/O — compose into versioned, exportable behaviors.</p>
-              <div className="fb-core-meta">
-                <span>typed I/O</span>
-                <span>compose</span>
-                <span>export</span>
-              </div>
+              <span className="fb-label">Building blocks</span>
+              <h3>NeuroBlocks &amp; NeuroStacks</h3>
+              <p>Typed neural functions you compose into versioned, exportable behaviors.</p>
             </div>
           </Tilt>
         </div>
@@ -55,7 +51,7 @@ export function FeatureBento() {
         </div>
 
         <div className="fb-slot fb-slot--accent" style={{ "--d": 4 } as CSSProperties}>
-          <Tilt className="fb-card fb-card--accent" max={6}>
+          <Tilt className="fb-card fb-card--accent glass" max={6}>
             <span className="fb-label">NeuroReceipts</span>
             <h3>Verified path</h3>
             <p>Input → action, recorded</p>

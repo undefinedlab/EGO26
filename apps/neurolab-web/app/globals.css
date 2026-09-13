@@ -1686,8 +1686,10 @@ html.lp-deck-lock body {
   height: 100%;
   padding: 1.05rem 1.15rem;
   border-radius: 22px;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   box-shadow:
-    0 22px 48px -22px rgba(15, 18, 24, 0.35),
+    0 22px 48px -22px rgba(15, 18, 24, 0.28),
     var(--glass-shadow);
 }
 .fb-label {
@@ -1728,7 +1730,7 @@ html.lp-deck-lock body {
   top: 14%;
   width: 68%;
   height: 62%;
-  z-index: 2;
+  z-index: 1;
   --from-x: 0px;
   --from-y: 36px;
   --from-rot: -1deg;
@@ -1737,66 +1739,46 @@ html.lp-deck-lock body {
   position: relative;
   overflow: hidden;
   padding: 0;
-  justify-content: flex-end;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--text) 88%, #1a1d22), #12151a);
-  color: #f4f5f7;
-  border: 0;
+  justify-content: center;
+  align-items: center;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  border-color: color-mix(in srgb, var(--text) 10%, transparent);
+  box-shadow:
+    0 22px 48px -22px rgba(15, 18, 24, 0.18),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
 }
 .fb-core-visual {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  pointer-events: none;
 }
 .fb-core-grid {
   position: absolute;
   inset: 0;
-  opacity: 0.35;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0.6px, transparent 0.7px);
+  opacity: 0.22;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--text) 22%, transparent) 0.6px, transparent 0.7px);
   background-size: 14px 14px;
-  mask-image: radial-gradient(ellipse 70% 60% at 60% 40%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 18%, transparent 75%);
 }
 .fb-core-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(28px);
-}
-.fb-core-orb--a {
-  width: 55%;
-  height: 55%;
-  top: -10%;
-  right: -5%;
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.fb-core-orb--b {
-  width: 45%;
-  height: 40%;
-  bottom: 10%;
-  left: 5%;
-  background: rgba(120, 160, 255, 0.28);
+  display: none;
 }
 .fb-core-copy {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 1.2rem 1.25rem 1.1rem;
-  background: linear-gradient(180deg, transparent, rgba(8, 10, 14, 0.72) 35%);
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 18rem;
+  padding: 1.15rem 1.35rem;
+  text-align: center;
 }
-.fb-card--core h3 { color: #fff; }
-.fb-card--core p { color: rgba(244, 245, 247, 0.78); }
-.fb-core-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem 0.85rem;
-  margin-top: 0.35rem;
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(244, 245, 247, 0.55);
-}
+.fb-card--core .fb-label { color: var(--text-subtle); }
+.fb-card--core h3 { color: var(--text); }
+.fb-card--core p { color: var(--text-muted); }
 
 .fb-slot--metric {
   left: 0;
@@ -1818,7 +1800,7 @@ html.lp-deck-lock body {
   right: 2%;
   top: 4%;
   width: min(34%, 11.5rem);
-  z-index: 1;
+  z-index: 5;
   --from-x: 36px;
   --from-y: -18px;
   --from-rot: 5deg;
@@ -1832,7 +1814,7 @@ html.lp-deck-lock body {
   left: 4%;
   bottom: 6%;
   width: min(36%, 12rem);
-  z-index: 3;
+  z-index: 4;
   --from-x: -28px;
   --from-y: 40px;
   --from-rot: 4deg;
@@ -1854,19 +1836,27 @@ html.lp-deck-lock body {
 .fb-card--accent {
   min-height: 9rem;
   transform: rotate(-2.5deg);
-  background:
-    linear-gradient(155deg, color-mix(in srgb, var(--accent) 88%, white), var(--accent));
-  color: var(--text-on-fill);
-  border: 0;
-  box-shadow:
-    0 22px 48px -18px color-mix(in srgb, var(--accent) 70%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  color: var(--text);
 }
 .fb-card--accent .fb-label,
 .fb-card--accent p {
-  color: color-mix(in srgb, var(--text-on-fill) 78%, transparent);
+  color: var(--text-muted);
 }
-.fb-card--accent h3 { color: var(--text-on-fill); }
+.fb-card--accent h3 { color: var(--text); }
+
+/* Side cluster: stronger frosted glass so they read over the stage */
+.fb-card--metric,
+.fb-card--side,
+.fb-card--sim,
+.fb-card--accent {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-color: color-mix(in srgb, var(--text) 10%, transparent);
+  backdrop-filter: blur(22px) saturate(170%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  box-shadow:
+    0 18px 42px -20px rgba(15, 18, 24, 0.22),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+}
 .fb-dots {
   display: grid;
   grid-template-columns: repeat(6, 0.55rem);
@@ -1878,11 +1868,11 @@ html.lp-deck-lock body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-on-fill) 32%, transparent);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
 }
 .fb-dots i[data-lit="true"] {
-  background: var(--text-on-fill);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text-on-fill) 22%, transparent);
+  background: color-mix(in srgb, var(--text) 72%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 10%, transparent);
 }
 
 @keyframes fb-appear {
@@ -2271,17 +2261,17 @@ html.lp-deck-lock body {
 
 .problem-bento {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
   grid-template-rows: 1fr 1fr;
   grid-template-areas:
     "determinism compute latency"
     "auditability compute infrastructure";
-  gap: 0.85rem;
-  width: min(100%, 58rem);
+  gap: 0.55rem;
+  width: min(100%, 42rem);
   margin-inline: auto;
-  flex: 1 1 auto;
-  min-height: 16rem;
-  max-height: min(56vh, 32rem);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(42vh, 22rem);
 }
 .problem-bento-card {
   width: 100%;
@@ -2289,15 +2279,35 @@ html.lp-deck-lock body {
   min-height: 0;
   justify-content: space-between;
 }
+.problem-bento .tradeoff {
+  gap: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+}
+.problem-bento .tradeoff-frame {
+  min-height: 3.25rem;
+  padding: 0.45rem 0.35rem;
+  border-radius: 10px;
+}
+.problem-bento .tradeoff-viz {
+  max-width: 3.35rem;
+}
+.problem-bento .tradeoff-meta {
+  padding-top: 0.45rem;
+  gap: 1px;
+}
+.problem-bento .tradeoff-label {
+  font-size: clamp(0.92rem, 0.82rem + 0.35vw, 1.12rem);
+}
 .problem-bento-card[data-area="compute"] { grid-area: compute; }
 .problem-bento-card[data-area="latency"] { grid-area: latency; }
 .problem-bento-card[data-area="infrastructure"] { grid-area: infrastructure; }
 .problem-bento-card[data-area="determinism"] { grid-area: determinism; }
 .problem-bento-card[data-area="auditability"] { grid-area: auditability; }
 .problem-bento-card--hero {
-  padding: 1.5rem 1.6rem;
+  padding: 0.85rem 0.95rem;
   text-align: center;
-  align-items: center;
+  align-items: stretch;
 }
 .problem-bento-card--hero .tradeoff-meta {
   align-items: center;
@@ -2306,10 +2316,43 @@ html.lp-deck-lock body {
 .problem-bento-card--hero .tradeoff-qty {
   justify-content: center;
 }
-.problem-bento-card--hero .tradeoff-frame { min-height: 7.25rem; flex: 1; }
-.problem-bento-card--hero .tradeoff-viz { max-width: 7rem; }
+.problem-bento-card--hero .tradeoff-frame {
+  width: 100%;
+  min-height: 4.5rem;
+  flex: 1;
+}
+.problem-bento-card--hero .tradeoff-viz {
+  width: 72%;
+  max-width: 9.5rem;
+  height: auto;
+}
 .problem-bento-card--hero .tradeoff-label {
-  font-size: clamp(1.55rem, 1.2rem + 1vw, 2.05rem);
+  font-size: clamp(1.15rem, 0.95rem + 0.7vw, 1.45rem);
+}
+.tradeoff.problem-bento-card--hero {
+  padding: 0.85rem 0.95rem;
+  text-align: center;
+  align-items: stretch;
+}
+.tradeoff.problem-bento-card--hero .tradeoff-meta {
+  align-items: center;
+  width: 100%;
+}
+.tradeoff.problem-bento-card--hero .tradeoff-qty {
+  justify-content: center;
+}
+.tradeoff.problem-bento-card--hero .tradeoff-frame {
+  width: 100%;
+  min-height: 4.5rem;
+  flex: 1;
+}
+.tradeoff.problem-bento-card--hero .tradeoff-viz {
+  width: 72%;
+  max-width: 9.5rem;
+  height: auto;
+}
+.tradeoff.problem-bento-card--hero .tradeoff-label {
+  font-size: clamp(1.15rem, 0.95rem + 0.7vw, 1.45rem);
 }
 @media (max-width: 900px) {
   .problem-bento {
@@ -2319,18 +2362,24 @@ html.lp-deck-lock body {
       "compute compute"
       "determinism latency"
       "auditability infrastructure";
-    width: min(100%, 34rem);
+    width: min(100%, 28rem);
     max-height: none;
     min-height: 0;
     flex: 0 1 auto;
   }
-  .problem-bento-card--hero .tradeoff-frame { min-height: 5rem; flex: none; }
+  .problem-bento-card--hero .tradeoff-frame,
+  .tradeoff.problem-bento-card--hero .tradeoff-frame { min-height: 3.75rem; flex: none; }
 }
 @media (max-width: 720px) {
   .problem-bento {
-    width: min(100%, 28rem);
+    width: min(100%, 22rem);
+    gap: 0.45rem;
   }
-  .problem-bento-card--hero .tradeoff-frame { min-height: 4.25rem; }
+  .problem-bento .tradeoff {
+    padding: 0.6rem 0.7rem;
+  }
+  .problem-bento-card--hero .tradeoff-frame,
+  .tradeoff.problem-bento-card--hero .tradeoff-frame { min-height: 3.25rem; }
 }
 .tradeoff-cloud--deck {
   min-height: 0;
@@ -2971,8 +3020,8 @@ html.lp-deck-lock body {
   padding: 1.85rem 2rem 1.9rem;
   border-radius: 1.65rem;
   box-sizing: border-box;
-  border: 0;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
   backdrop-filter: blur(28px) saturate(150%);
   -webkit-backdrop-filter: blur(28px) saturate(150%);
   box-shadow:
@@ -2986,20 +3035,6 @@ html.lp-deck-lock body {
   will-change: transform, opacity;
   overflow: hidden;
 }
-.verify-slide-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--accent) 55%, transparent) 20%,
-    color-mix(in srgb, var(--accent) 55%, transparent) 80%,
-    transparent
-  );
-  opacity: 0.55;
-}
 .verify-slide-card::after {
   content: "";
   position: absolute;
@@ -3011,7 +3046,7 @@ html.lp-deck-lock body {
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 1px) 0 0 / 0.45rem 100%,
     linear-gradient(color-mix(in srgb, var(--text) 8%, transparent) 1px, transparent 1px) 0 0 / 100% 0.45rem;
-  opacity: 0.55;
+  opacity: 0.45;
   pointer-events: none;
 }
 .verify-slide-card[data-active="true"] {
@@ -3023,6 +3058,12 @@ html.lp-deck-lock body {
     0 24px 56px color-mix(in srgb, var(--text) 10%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
 }
+.verify-slide-card[data-active="false"] {
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  box-shadow:
+    0 14px 36px color-mix(in srgb, var(--text) 6%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+}
 .verify-slide-top {
   display: flex;
   align-items: baseline;
@@ -3033,7 +3074,10 @@ html.lp-deck-lock body {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
-  color: var(--accent-text);
+  color: var(--text-subtle);
+}
+.verify-slide-card[data-active="true"] .verify-slide-idx {
+  color: var(--text-muted);
 }
 .verify-slide-layer {
   font-size: 0.62rem;
@@ -3067,35 +3111,8 @@ html.lp-deck-lock body {
   color: var(--text-muted);
   text-wrap: pretty;
 }
-.verify-slide-points {
-  margin: 0.85rem 0 0;
-  padding: 0.7rem 0 0;
-  list-style: none;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  border-top: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
-}
-.verify-slide-points li {
-  position: relative;
-  padding-left: 0.85rem;
-  font-size: clamp(0.84rem, 0.8rem + 0.14vw, 0.92rem);
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-.verify-slide-points li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 0.28rem;
-  height: 1px;
-  background: color-mix(in srgb, var(--text) 35%, transparent);
-}
-.verify-slide-card[data-active="false"] .verify-slide-detail,
-.verify-slide-card[data-active="false"] .verify-slide-points {
-  opacity: 0.2;
+.verify-slide-card[data-active="false"] .verify-slide-detail {
+  display: none;
 }
 
 .verify-rail {
@@ -3316,9 +3333,9 @@ html.lp-deck-lock body {
 }
 .closer--deck .closer-copy {
   justify-content: center;
-  padding-top: clamp(7rem, 9vh + 3.5rem, 11rem);
-  padding-bottom: 5rem;
-  transform: translateY(2.5vh);
+  padding-top: clamp(4.5rem, 6vh + 2rem, 6.5rem);
+  padding-bottom: clamp(3rem, 4vh + 1rem, 4.5rem);
+  transform: translateY(14vh);
 }
 
 @media (max-width: 1100px) {
@@ -4197,6 +4214,10 @@ html.lp-deck-lock body {
   overflow: hidden;
   border-top: 1px solid var(--line);
 }
+.closer.closer--deck {
+  margin: 0;
+  border-top: 0;
+}
 .closer-stage {
   position: relative;
   isolation: isolate;
@@ -4406,25 +4427,21 @@ html.lp-deck-lock body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: 0.72;
-  /* Activity lives on the flanks; center stays quiet for the copy. */
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    #000 22%,
+  opacity: 0.48;
+  /* Activity on the flanks; wide quiet band through the statement. */
+  -webkit-mask-image: radial-gradient(
+    ellipse 62% 58% at 50% 48%,
+    transparent 0%,
     transparent 38%,
-    transparent 62%,
-    #000 78%,
-    #000 100%
+    rgba(0, 0, 0, 0.35) 58%,
+    #000 82%
   );
-  mask-image: linear-gradient(
-    90deg,
-    #000 0%,
-    #000 22%,
+  mask-image: radial-gradient(
+    ellipse 62% 58% at 50% 48%,
+    transparent 0%,
     transparent 38%,
-    transparent 62%,
-    #000 78%,
-    #000 100%
+    rgba(0, 0, 0, 0.35) 58%,
+    #000 82%
   );
 }
 .impulse-canvas canvas {
@@ -4447,9 +4464,23 @@ html.lp-deck-lock body {
   text-align: center;
   background: none;
 }
+.impulse-copy::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 18% 12%;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 55% 48% at 50% 48%,
+    color-mix(in srgb, var(--bg) 78%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 42%, transparent) 48%,
+    transparent 76%
+  );
+  pointer-events: none;
+}
 .impulse .statement,
 .impulse .statement-note {
-  text-shadow: none;
+  text-shadow: 0 1px 18px color-mix(in srgb, var(--bg) 55%, transparent);
 }
 .impulse .statement {
   max-width: 22ch;
@@ -4722,26 +4753,6 @@ html.lp-deck-lock body {
   font-weight: var(--fw-semi);
   letter-spacing: -0.025em;
   color: var(--text);
-}
-.tradeoff.problem-bento-card--hero {
-  padding: 1.5rem 1.6rem;
-  text-align: center;
-  align-items: center;
-}
-.tradeoff.problem-bento-card--hero .tradeoff-meta {
-  align-items: center;
-  width: 100%;
-}
-.tradeoff.problem-bento-card--hero .tradeoff-qty {
-  justify-content: center;
-}
-.tradeoff.problem-bento-card--hero .tradeoff-frame {
-  min-height: 7.25rem;
-  flex: 1;
-}
-.tradeoff.problem-bento-card--hero .tradeoff-viz { max-width: 7rem; }
-.tradeoff.problem-bento-card--hero .tradeoff-label {
-  font-size: clamp(1.55rem, 1.2rem + 1vw, 2.05rem);
 }
 
 @media (max-width: 1100px) {

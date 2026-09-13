@@ -7,7 +7,6 @@ export type VerifyLayer = {
   title: string;
   body: string;
   detail: string;
-  points: readonly string[];
 };
 
 function wrapDelta(i: number, index: number, len: number) {
@@ -103,7 +102,7 @@ export function VerifySlider({ layers }: { layers: readonly VerifyLayer[] }) {
                 {
                   "--d": d,
                   "--abs": Math.abs(d),
-                  opacity: visible ? (d === 0 ? 1 : 0.42) : 0,
+                  opacity: visible ? (d === 0 ? 1 : 0.72) : 0,
                   pointerEvents: visible ? "auto" : "none",
                   zIndex: 10 - Math.abs(d),
                   cursor: d === 0 ? "default" : "pointer",
@@ -120,11 +119,6 @@ export function VerifySlider({ layers }: { layers: readonly VerifyLayer[] }) {
               <h3>{layer.title}</h3>
               <p className="verify-slide-body">{layer.body}</p>
               <p className="verify-slide-detail">{layer.detail}</p>
-              <ul className="verify-slide-points">
-                {layer.points.map((point) => (
-                  <li key={point}>{point}</li>
-                ))}
-              </ul>
             </article>
           ))}
         </div>

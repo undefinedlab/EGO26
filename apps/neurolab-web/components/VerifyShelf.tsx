@@ -1287,6 +1287,7 @@ function StackTrustGraph({
   const localOk = localReport?.outcome === "MATCH";
   const localFail = localReport?.outcome === "MISMATCH";
   const onGraph = Boolean(stackReg);
+  const onPublicGraph = stackReg?.source === "subgraph";
   const onLedger = Boolean(ledger);
   const mirror = ledger
     ? `https://${ledger.network === "mainnet" ? "mainnet-public" : ledger.network}.mirrornode.hedera.com/api/v1/topics/${ledger.topicId}/messages/${ledger.sequenceNumber}`
@@ -1307,7 +1308,7 @@ function StackTrustGraph({
         <li className={localFail ? "is-fail" : localOk || !localReport ? "is-done" : "is-pending"}>
           <i>2</i><b>Canonical identity</b><small>{localFail ? "failed" : localOk ? "recomputed" : "pending"}</small>
         </li>
-        <li className={onGraph ? "is-done" : localOk ? "is-pending" : "is-idle"}>
+        <li className={onPublicGraph ? "is-done" : onGraph || localOk ? "is-pending" : "is-idle"}>
           <i>3</i><b>Graph registry</b><small>{onGraph ? (stackReg!.source === "subgraph" ? "indexed" : "local index") : "not registered"}</small>
         </li>
         <li className={onLedger ? "is-done" : localOk ? "is-pending" : "is-idle"}>
@@ -1363,7 +1364,8 @@ function TrustGraph({
         : "Result only";
   const onLedger = Boolean(ledger);
   const onGraph = Boolean(anchor);
-  const anchored = onLedger || onGraph;
+  const onPublicGraph = anchor?.source === "subgraph";
+  const publiclyAnchored = onLedger || onPublicGraph;
   const anchorDetail = !creResult
     ? "await CRE"
     : onLedger
@@ -1396,7 +1398,7 @@ function TrustGraph({
         <li className={creFailed ? "is-fail" : creVerified ? "is-done" : creResult ? "is-pending" : "is-idle"}>
           <i>4</i><b>Chainlink CRE</b><small>{creDetail}</small>
         </li>
-        <li className={anchored ? "is-done" : creResult?.outcome === "COMMITMENTS_MATCH" ? "is-pending" : "is-idle"}>
+        <li className={publiclyAnchored ? "is-done" : creResult?.outcome === "COMMITMENTS_MATCH" ? "is-pending" : "is-idle"}>
           <i>5</i><b>Anchor</b><small>{anchorDetail}</small>
         </li>
       </ol>

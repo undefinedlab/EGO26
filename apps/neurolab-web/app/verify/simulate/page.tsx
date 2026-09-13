@@ -8,7 +8,6 @@ import { Simulator } from "@/components/Simulator";
 import { StackSimulator } from "@/components/StackSimulator";
 import { StackCodeLab } from "@/components/StackCodeLab";
 import { MotifLab } from "@/components/MotifLab";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { casesForBlock, type BlockId } from "@/lib/blocks";
 import { SIMULATE_HREF } from "@/lib/nav";
 import { useLabStore } from "@/lib/store";
@@ -31,9 +30,6 @@ function SimulateBackBar() {
       <div>
         <span className="vf-kicker">VERIFY · SUBFEATURE</span>
         <strong>Simulate</strong>
-      </div>
-      <div className="vf-sim-bar-actions">
-        <ThemeToggle className="theme-toggle--bare" />
       </div>
     </div>
   );

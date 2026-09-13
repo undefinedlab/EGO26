@@ -19,3 +19,14 @@ receipt-bundles/**
 
 # Local Library releases (machine-local content)
 .synapse-library/
+
+# Local Graph partner index (Verify Anchor E2E without The Graph Studio)
+apps/neurolab-web/.data/
+
+# Deploy secrets / local wallet metadata
+contracts/.env
+contracts/deployments/*.local.json
+contracts/deployments/sepolia.json
+apps/neurolab-web/.env.local
+
+

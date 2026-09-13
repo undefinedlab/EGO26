@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Brand } from "@/components/Shell";
 import { NAV, SITE_LINKS } from "@/lib/nav";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconClose, IconMenu } from "@/components/icons";
 
 export function LandingNav() {
@@ -43,7 +42,6 @@ export function LandingNav() {
           </nav>
 
           <div className="float-nav-actions">
-            <ThemeToggle className="theme-toggle--bare" />
             <Link href="/compose" className="btn btn-primary btn-sm btn-desktop">
               Open Workbench
             </Link>

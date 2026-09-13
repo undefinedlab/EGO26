@@ -34,15 +34,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * Applies the stored theme before first paint so the page never flashes the
- * wrong palette. Falls back to the OS preference when nothing is stored.
+ * Light is the only product theme. Clear any older dark preference so OS dark
+ * mode and leftover localStorage cannot flip the palette.
  */
-const THEME_BOOTSTRAP = `(function(){try{var t=localStorage.getItem("nl-theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}})()`;
+const THEME_BOOTSTRAP = `(function(){try{localStorage.removeItem("nl-theme")}catch(e){}document.documentElement.setAttribute("data-theme","light")})()`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
+      data-theme="light"
       className={`${interTight.variable} ${inter.variable} ${jetbrains.variable}`}
       suppressHydrationWarning
     >

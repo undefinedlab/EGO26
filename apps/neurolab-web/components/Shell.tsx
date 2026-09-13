@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconClose, IconMenu, IconUser } from "@/components/icons";
 import { NAV } from "@/lib/nav";
 
@@ -64,7 +63,6 @@ export function Shell({
           </nav>
 
           <div className="nav-actions">
-            <ThemeToggle className="theme-toggle--bare" />
             <Link
               href="/profile"
               className="shell-profile"

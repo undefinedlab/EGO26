@@ -34,6 +34,15 @@ function readColors() {
   return { accent, ink, mid, soft, dark };
 }
 
+/** Case cards: keep figure ink/accent strong; only background dust stays faint. */
+function readPixelColors() {
+  const base = readColors();
+  return {
+    ...base,
+    soft: base.dark ? "rgba(236, 238, 242, 0.04)" : "rgba(18, 22, 28, 0.035)",
+  };
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   const full =
@@ -358,14 +367,6 @@ const WALKER = [
   [1, 0, 1],
 ] as const;
 
-const CHIP = [
-  [0, 1, 0, 1, 0, 1, 0],
-  [1, 1, 1, 1, 1, 1, 1],
-  [1, 1, 2, 1, 1, 1, 1],
-  [1, 1, 1, 1, 1, 1, 1],
-  [0, 1, 0, 1, 0, 1, 0],
-] as const;
-
 function paintRobotics(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -375,7 +376,7 @@ function paintRobotics(
   t: number,
   colors: PixColors,
 ) {
-  dust(ctx, ox, oy, cols, rows, colors, 0.07);
+  dust(ctx, ox, oy, cols, rows, colors, 0.035);
   const p = (t % 2800) / 2800;
   const loomX = cols * 0.7;
   const loomY = rows * 0.46;
@@ -406,7 +407,7 @@ function paintGames(
   colors: PixColors,
   sprites: { x: number; y: number; dx: number }[],
 ) {
-  dust(ctx, ox, oy, cols, rows, colors, 0.05);
+  dust(ctx, ox, oy, cols, rows, colors, 0.025);
   const ground = rows - 3;
   for (let x = 0; x < cols; x += 2) plot(ctx, ox, oy, cols, rows, x, ground, colors.soft);
   const flinch = Math.floor(t / 1400) % 2 === 1;
@@ -428,6 +429,13 @@ function paintGames(
   });
 }
 
+const CAM = [
+  [1, 1, 1],
+  [1, 2, 1],
+  [0, 1, 0],
+] as const;
+
+/** Camera + sweeping FOV rays only. */
 function paintSpatial(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -437,50 +445,61 @@ function paintSpatial(
   t: number,
   colors: PixColors,
 ) {
-  dust(ctx, ox, oy, cols, rows, colors, 0.04);
-  const horizon = Math.round(rows * 0.38);
-  const vx = cols / 2;
-  for (let x = 0; x < cols; x++) {
-    if (x % 3 === 0) plot(ctx, ox, oy, cols, rows, x, horizon, colors.mid);
-  }
-  for (let i = -4; i <= 4; i++) {
-    const edgeX = vx + i * (cols * 0.22);
-    for (let s = 1; s <= 10; s++) {
-      const u = s / 10;
-      const x = Math.round(vx + (edgeX - vx) * u);
-      const y = Math.round(horizon + (rows - 2 - horizon) * u * u);
-      plot(ctx, ox, oy, cols, rows, x, y, s > 7 ? colors.ink : colors.soft);
+  dust(ctx, ox, oy, cols, rows, colors, 0.01);
+
+  const camX = Math.max(2, Math.round(cols * 0.18));
+  const camY = Math.max(2, Math.round(rows * 0.2));
+  stamp(ctx, ox, oy, cols, rows, camX, camY, CAM, colors.ink, colors.accent);
+
+  const sweep = 0.35 + ((Math.sin(t / 900) + 1) / 2) * 1.05;
+  const half = 0.34;
+  const reach = Math.min(cols, rows) * 0.92;
+  const originX = camX + 1;
+  const originY = camY + 1;
+
+  for (let a = -half; a <= half; a += 0.06) {
+    const ang = sweep + a;
+    const dx = Math.cos(ang);
+    const dy = Math.sin(ang);
+    const edge = Math.abs(a) > half * 0.72;
+    for (let s = 2; s < reach; s += 1) {
+      const x = Math.round(originX + dx * s);
+      const y = Math.round(originY + dy * s);
+      if (x < 0 || x >= cols || y < 0 || y >= rows) break;
+      if (edge || s % 2 === 0) {
+        const fade = s / reach;
+        plot(
+          ctx,
+          ox,
+          oy,
+          cols,
+          rows,
+          x,
+          y,
+          edge ? colors.accent : fade > 0.72 ? colors.soft : colors.mid,
+        );
+      }
     }
   }
-  for (let row = 1; row <= 6; row++) {
-    const u = row / 6;
-    const y = Math.round(horizon + (rows - 2 - horizon) * u * u);
-    const span = 2 + u * cols * 0.48;
-    for (let x = vx - span; x <= vx + span; x += Math.max(1.4, 3.2 - u * 2)) {
-      plot(ctx, ox, oy, cols, rows, Math.round(x), y, colors.mid);
-    }
-  }
-  const pulse = (Math.sin(t / 420) + 1) / 2;
-  const camX = Math.round(vx - 1 + (pulse > 0.72 ? 2 : 0));
-  const camY = Math.round(horizon + 4);
-  stamp(
-    ctx,
-    ox,
-    oy,
-    cols,
-    rows,
-    camX,
-    camY,
-    [
-      [0, 1, 0],
-      [1, 2, 1],
-      [0, 1, 0],
-    ],
-    colors.ink,
-    colors.accent,
-  );
 }
 
+const DEVICE = [
+  [1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 2, 1, 0, 1],
+  [1, 0, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1, 1, 1],
+  [0, 0, 1, 1, 1, 0, 0],
+] as const;
+
+const CLOUD = [
+  [0, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1],
+  [0, 1, 1, 1, 0],
+] as const;
+
+/** Offline edge: cloud link fails → local chip keeps ticking. */
 function paintEdge(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -490,18 +509,71 @@ function paintEdge(
   t: number,
   colors: PixColors,
 ) {
-  dust(ctx, ox, oy, cols, rows, colors, 0.035);
-  const cx = Math.round(cols / 2 - 3);
-  const cy = Math.round(rows / 2 - 2);
-  stamp(ctx, ox, oy, cols, rows, cx, cy, CHIP, colors.ink, colors.accent);
-  const pin = Math.floor(t / 700) % 6;
-  const pinX = cx + 1 + pin;
-  plot(ctx, ox, oy, cols, rows, pinX, cy - 1, colors.accent);
-  plot(ctx, ox, oy, cols, rows, pinX, cy + 5, colors.mid);
-  const tick = Math.floor(t / 900) % 8 === 0;
-  if (tick) plot(ctx, ox, oy, cols, rows, cx + 8, cy + 1, colors.accent);
+  dust(ctx, ox, oy, cols, rows, colors, 0.012);
+
+  const phase = (t % 4200) / 4200;
+  const offline = phase > 0.35;
+
+  // Stack vertically: cloud on top, device below, wire straight down
+  const midX = Math.round(cols * 0.42);
+  const cloudX = midX - 2;
+  const cloudY = Math.max(1, Math.round(rows * 0.1));
+  stamp(ctx, ox, oy, cols, rows, cloudX, cloudY, CLOUD, offline ? colors.mid : colors.ink, colors.accent);
+
+  const devX = midX - 3;
+  const devY = Math.round(rows * 0.52);
+  stamp(ctx, ox, oy, cols, rows, devX, devY, DEVICE, colors.ink, colors.accent);
+
+  const xWire = midX;
+  const y0 = cloudY + 3;
+  const y1 = devY;
+  const steps = Math.max(4, y1 - y0);
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    const y = y0 + i;
+    if (offline && u > 0.35 && u < 0.65) continue;
+    plot(ctx, ox, oy, cols, rows, xWire, y, offline ? colors.soft : i % 2 === 0 ? colors.mid : colors.ink);
+  }
+
+  if (!offline) {
+    const u = (phase / 0.35) % 1;
+    const py = Math.round(y0 + (y1 - y0) * u);
+    plot(ctx, ox, oy, cols, rows, xWire, py, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire - 1, py, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire + 1, py, colors.accent);
+  } else {
+    const my = Math.round(y0 + (y1 - y0) * 0.5);
+    plot(ctx, ox, oy, cols, rows, xWire, my, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire - 1, my - 1, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire + 1, my - 1, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire - 1, my + 1, colors.accent);
+    plot(ctx, ox, oy, cols, rows, xWire + 1, my + 1, colors.accent);
+  }
+
+  const tick = Math.floor(t / 280) % 4;
+  for (let i = 0; i < 4; i++) {
+    const on = offline ? i <= tick : i === 0;
+    plot(ctx, ox, oy, cols, rows, devX + 8 + i, devY + 2, on ? colors.accent : colors.soft);
+    plot(ctx, ox, oy, cols, rows, devX + 8 + i, devY + 3, on ? colors.accent : colors.soft);
+  }
+  if (offline && tick % 2 === 0) {
+    plot(ctx, ox, oy, cols, rows, devX + 3, devY + 2, colors.accent);
+  }
 }
 
+const AGENT = [
+  [0, 1, 0],
+  [1, 2, 1],
+  [1, 0, 1],
+] as const;
+
+const HAZARD = [
+  [0, 2, 0],
+  [2, 2, 2],
+  [0, 2, 0],
+] as const;
+
+/** Planner dashed path vs reflex veto when a hazard appears. */
 function paintAgents(
   ctx: CanvasRenderingContext2D,
   ox: number,
@@ -510,39 +582,85 @@ function paintAgents(
   rows: number,
   t: number,
   colors: PixColors,
-  path: { x: number; y: number }[],
+  _path: { x: number; y: number }[],
 ) {
-  dust(ctx, ox, oy, cols, rows, colors, 0.045);
-  const drawn = Math.min(path.length, 2 + Math.floor((t / 90) % (path.length + 18)));
-  for (let i = 0; i < drawn && i < path.length; i++) {
-    plot(ctx, ox, oy, cols, rows, path[i].x, path[i].y, i === drawn - 1 ? colors.accent : colors.mid);
+  dust(ctx, ox, oy, cols, rows, colors, 0.012);
+
+  const startX = 2;
+  const startY = Math.round(rows * 0.72);
+  const goalX = cols - 4;
+  const goalY = Math.round(rows * 0.22);
+  const hazX = Math.round(cols * 0.52);
+  const hazY = Math.round(rows * 0.38);
+
+  // Goal
+  stamp(
+    ctx,
+    ox,
+    oy,
+    cols,
+    rows,
+    goalX,
+    goalY,
+    [
+      [1, 1],
+      [1, 1],
+    ],
+    colors.ink,
+    colors.accent,
+  );
+
+  // Planned route (dashed) — goes straight through where hazard will be
+  const planSteps = 16;
+  for (let i = 0; i <= planSteps; i++) {
+    const u = i / planSteps;
+    const x = Math.round(startX + (goalX - startX) * u);
+    const y = Math.round(startY + (goalY - startY) * u);
+    if (i % 2 === 0) plot(ctx, ox, oy, cols, rows, x, y, colors.mid);
   }
-  const threatOn = drawn > path.length * 0.45 && drawn < path.length * 0.82;
-  if (threatOn && path.length) {
-    const hit = path[Math.floor(path.length * 0.62)];
-    plot(ctx, ox, oy, cols, rows, hit.x + 1, hit.y - 2, colors.accent);
-    plot(ctx, ox, oy, cols, rows, hit.x + 2, hit.y - 1, colors.accent);
-    plot(ctx, ox, oy, cols, rows, hit.x + 1, hit.y, colors.ink);
-    // reflex veto spike
-    for (let k = 0; k < 4; k++) plot(ctx, ox, oy, cols, rows, hit.x - k, hit.y - k, colors.accent);
+
+  const cycle = (t % 5600) / 5600;
+  // Hazard appears mid-run
+  const hazardLive = cycle > 0.28 && cycle < 0.88;
+  if (hazardLive) {
+    stamp(ctx, ox, oy, cols, rows, hazX, hazY, HAZARD, colors.accent, colors.accent);
   }
-  if (path.length) {
-    const goal = path[path.length - 1];
-    stamp(
-      ctx,
-      ox,
-      oy,
-      cols,
-      rows,
-      goal.x,
-      goal.y,
-      [
-        [1, 1],
-        [1, 1],
-      ],
-      colors.ink,
-      colors.accent,
-    );
+
+  // Agent progress along path; reflex divert when near hazard
+  let u = Math.min(1, cycle / 0.92);
+  let ax = startX + (goalX - startX) * u;
+  let ay = startY + (goalY - startY) * u;
+
+  const nearHaz = hazardLive && u > 0.32 && u < 0.72;
+  if (nearHaz) {
+    // reflex: drop below hazard instead of following plan into it
+    const local = (u - 0.32) / 0.4;
+    const divert = Math.sin(Math.min(1, Math.max(0, local)) * Math.PI);
+    ay = ay + divert * Math.max(3, rows * 0.22);
+    // veto flash on the planned cell inside hazard
+    if (local > 0.2 && local < 0.55) {
+      plot(ctx, ox, oy, cols, rows, hazX + 1, hazY - 2, colors.accent);
+      plot(ctx, ox, oy, cols, rows, hazX, hazY - 1, colors.accent);
+      plot(ctx, ox, oy, cols, rows, hazX + 2, hazY - 1, colors.accent);
+      // STOP bar
+      for (let k = -2; k <= 2; k++) plot(ctx, ox, oy, cols, rows, hazX + 1 + k, hazY + 4, colors.accent);
+    }
+  }
+
+  const ix = Math.round(ax);
+  const iy = Math.round(Math.min(rows - 4, ay));
+  stamp(ctx, ox, oy, cols, rows, ix, iy, AGENT, nearHaz ? colors.accent : colors.ink, colors.accent);
+
+  // solid reflex trail behind agent (vs dashed plan)
+  for (let back = 1; back <= 3; back++) {
+    const bu = Math.max(0, u - back * 0.04);
+    let bx = startX + (goalX - startX) * bu;
+    let by = startY + (goalY - startY) * bu;
+    if (hazardLive && bu > 0.32 && bu < 0.72) {
+      const local = (bu - 0.32) / 0.4;
+      by = by + Math.sin(Math.min(1, Math.max(0, local)) * Math.PI) * Math.max(3, rows * 0.22);
+    }
+    plot(ctx, ox, oy, cols, rows, Math.round(bx), Math.round(Math.min(rows - 4, by)), colors.ink);
   }
 }
 
@@ -592,7 +710,7 @@ export function CasePixel({
     let oy = 0;
     let cssW = 0;
     let cssH = 0;
-    let colors: PixColors = { ...readColors(), accentRgb: [255, 77, 18] };
+    let colors: PixColors = { ...readPixelColors(), accentRgb: [255, 77, 18] };
     let sprites = [
       { x: 3, y: 6, dx: 0.08 },
       { x: 12, y: 11, dx: -0.06 },
@@ -606,7 +724,7 @@ export function CasePixel({
     let last = 0;
 
     const refreshColors = () => {
-      const next = readColors();
+      const next = readPixelColors();
       const hex = next.accent.startsWith("#") ? next.accent : "#ff4d12";
       colors = { ...next, accentRgb: hexToRgb(hex) };
     };
