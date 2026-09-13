@@ -1,4 +1,5 @@
 import {importStack, DEFINITIONS} from "./composeCompiler";
+import {existsSync} from "node:fs";
 import {readFile,readdir,mkdir,writeFile,link,unlink} from "node:fs/promises";
 import path from "node:path";
 import {createHash,randomUUID} from "node:crypto";
@@ -16,7 +17,18 @@ type Repo={item:LibraryItem;files:Record<string,Buffer>};
 export class LibraryError extends Error{constructor(message:string,public status=400){super(message);}}
 export const sha=(value:string|Buffer)=>"sha256:"+createHash("sha256").update(value).digest("hex");
 const json=(value:unknown)=>Buffer.from(JSON.stringify(value,null,2)+"\n");
-export function vmRoot(){const cwd=process.cwd();return cwd.endsWith("neurolab-web")?path.resolve(cwd,"../.."):cwd;}
+export function vmRoot(){
+ if(process.env.SYNAPSEVM_ROOT)return path.resolve(process.env.SYNAPSEVM_ROOT);
+ const cwd=process.cwd();
+ const candidates=[
+  cwd.endsWith("neurolab-web")?path.resolve(cwd,"../.."):null,
+  cwd,
+  path.resolve(cwd,"../.."),
+  path.resolve(cwd,".."),
+ ].filter((v):v is string=>Boolean(v));
+ for(const root of candidates)if(existsSync(path.join(root,"blocks")))return root;
+ return candidates[0]??cwd;
+}
 export function libraryDataDir(){return process.env.SYNAPSEVM_LIBRARY_DIR??path.join(vmRoot(),".synapse-library");}
 const segment=/^[a-z0-9][a-z0-9_-]{0,47}$/;
 const version=/^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$/;
@@ -30,8 +42,12 @@ async function optionalJson(file:string){try{return JSON.parse(await readFile(fi
 async function readPackageFiles(dir:string){const files:Record<string,Buffer>={};async function visit(folder:string,prefix=""){for(const e of await readdir(folder,{withFileTypes:true})){if(e.isSymbolicLink())continue;const name=prefix+e.name;if(e.isDirectory()){if(["adapters","test-vectors"].includes(e.name))await visit(path.join(folder,e.name),name+"/");}else if(/\.(json|bin)$/.test(name)){files[name]=await readFile(path.join(folder,e.name));}}}await visit(dir);return files;}
 async function bundled():Promise<Repo[]>{
  const root=vmRoot();const repos:Repo[]=[];
+ if(!existsSync(path.join(root,"blocks"))){
+  throw new LibraryError("Bundled NeuroBlocks are missing at "+path.join(root,"blocks")+" (cwd="+process.cwd()+"). On Vercel, set outputFileTracingRoot to the monorepo root and include ../../blocks/**/*.",500);
+ }
  for(const meta of NEURO_BLOCKS){
   const dir=path.join(root,"blocks",meta.id,meta.version);const files=await readPackageFiles(dir);
+  if(!files["block.json"]||!files["manifest.json"]||!files["provenance.json"])throw new LibraryError("Incomplete bundled package at "+dir,500);
   const b=JSON.parse(files["block.json"].toString()) as BlockJson;const m=JSON.parse(files["manifest.json"].toString());const p=JSON.parse(files["provenance.json"].toString());
   const source=meta.id==="loomguard";const cp=p.connectomicProvenance??{};
   const readme=meta.tagline+"\n\n"+(source?"Connectivity is attributed to FlyWire optic escape circuitry. Fixed-point LIF parameters and the runtime assist are engineered modeling choices.":"This is an engineered demonstration model. Its intended behavior is "+meta.tagline.toLowerCase()+"; the bundled low-level runtime currently exposes a shared reflex decoder.")+"\n\nUse this repository to inspect the model, input mapping, provenance, and included test vectors before trying its simulator scenarios. Biological fidelity, deployment safety, and publisher identity have not been independently established.";
