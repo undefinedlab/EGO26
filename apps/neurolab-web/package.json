@@ -8,6 +8,7 @@
     "start": "next start -p 3000",
     "test:graph": "node --experimental-strip-types lib/graphPartner.test.mjs",
     "test:anchor": "node --experimental-strip-types lib/anchorMerkle.test.mjs",
+    "test:cre-gateway": "node --experimental-strip-types lib/creGateway.test.mjs",
     "test:e2e": "npx --yes tsx scripts/e2e-compose-verify.mjs",
     "hedera:whoami": "node --experimental-strip-types scripts/hedera-whoami.mjs",
     "hedera:topic": "node --experimental-strip-types scripts/hedera-create-topic.mjs"
@@ -18,6 +19,7 @@
     "@noble/hashes": "^1.8.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
+    "ethers": "^6.17.0",
     "next": "^15.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
