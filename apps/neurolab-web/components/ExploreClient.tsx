@@ -8,8 +8,7 @@ import {ROLE_LABELS,regionCount,hasNerveCord,type RegionRole} from "@/lib/brainA
 import {formatCount} from "@/lib/brain";
 import {TIMESCALE_LABELS} from "@/lib/circuitAtlas";
 import {MotifDiagram} from "./MotifDiagram";
-import {chainFor,verifiedCount,RELATION_LABELS,RELATION_HELP} from "@/lib/composition";
-import {LibraryIcon as Icon} from "./LibraryIcon";
+import {LibraryIcon as Icon, kindIconName} from "./LibraryIcon";
 function brainItem(b:BrainSummary):LibraryItem{
  return {id:"local/"+b.id,owner:"local",slug:b.id,name:b.id,kind:"Brain",
   description:b.name+" imported from "+b.sourceFile+", normalised and hashed in this browser.",
@@ -32,13 +31,12 @@ export function ExploreClient({items:serverItems}:{items:LibraryItem[]}){
  const selected=items.filter(i=>i.kind===kind);const tasks=[...new Set(selected.map(i=>i.task))];const sources=[...new Set(selected.map(i=>i.sourceType))];
  const isData=selected.some(i=>i.dataset);const isRegion=selected.some(i=>i.region);const isCircuit=selected.some(i=>i.circuit);const scales=[...new Set(selected.map(i=>i.circuit?.timescale).filter(Boolean))] as ("reflex"|"fast"|"deliberative")[];const roles=[...new Set(selected.map(i=>i.region?.def.role).filter(Boolean))] as RegionRole[];const coverages=[...new Set(selected.map(i=>i.dataset?.coverage).filter(Boolean))] as Coverage[];const organisms=[...new Set(selected.map(i=>i.dataset?.common??i.brain?.common).filter(Boolean))] as string[];
  const filtered=useMemo(()=>filterLibrary(items,{kind,q,task,origin,source,coverage,organism,role,timescale,sort,savedOnly,saved}),[items,kind,q,task,origin,source,coverage,organism,role,timescale,sort,savedOnly,saved]);
- const recent=items.filter(i=>i.origin==="local").sort((a,b)=>(b.publishedAt??"").localeCompare(a.publishedAt??"")).slice(0,3);
  const chooseKind=(value:ArtifactKind)=>{setKind(value);setTask("");setSource("");setCoverage("");setOrganism("");setRole("");setTimescale("");};
  const clear=()=>{setQ("");setTask("");setOrigin("");setSource("");setCoverage("");setOrganism("");setRole("");setTimescale("");setSavedOnly(false);};
  const toggleSave=(id:string)=>{const next=saved.includes(id)?saved.filter(s=>s!==id):[...saved,id];try{localStorage.setItem("synapsevm.library.saved",JSON.stringify(next));setSaved(next);}catch{setNotice("Your browser could not save this collection.");}};
  return <div className="library-page">
   <header className="lib-hero"><div><div className="lib-eyebrow"><span className="lib-live-dot"/> Discover</div><h1>Small pieces.<br className="lib-mobile-break"/> Shared intelligence.</h1><p>Find neural modules, inspect their origins, and build on what others publish.</p></div><Link className="lib-button primary" href="/explore/publish"><Icon name="upload"/> Publish a release</Link></header>
-  <nav className="lib-kind-tabs" aria-label="Artifact categories">{KINDS.map(k=><button key={k} onClick={()=>chooseKind(k)} aria-pressed={kind===k} className={kind===k?"active":""}><Icon name={k==="NeuroBlock"?"block":k==="NeuroStack"?"stack":"source"} size={16}/>{KIND_LABELS[k]}<span>{items.filter(i=>i.kind===k).length}</span></button>)}</nav>
+  <nav className="lib-kind-tabs" aria-label="Artifact categories">{KINDS.map(k=><button key={k} onClick={()=>chooseKind(k)} aria-pressed={kind===k} className={kind===k?"active":""}><Icon name={kindIconName(k)} size={16}/>{KIND_LABELS[k]}<span>{items.filter(i=>i.kind===k).length}</span></button>)}</nav>
   <div className="lib-layout"><aside className="lib-filters" aria-label="Catalog filters">
    <div className="lib-filter-title"><strong>Discover</strong><button onClick={clear}>Reset</button></div>
    <button className={savedOnly?"lib-saved active":"lib-saved"} aria-pressed={savedOnly} onClick={()=>setSavedOnly(!savedOnly)}><Icon name="save" size={16}/> Saved collection <span>{saved.length}</span></button>
@@ -60,7 +58,7 @@ export function ExploreClient({items:serverItems}:{items:LibraryItem[]}){
     {roles.map(r=><button key={r} className={role===r?"active":""} onClick={()=>setRole(role===r?"":r)}>{ROLE_LABELS[r]}<span>{selected.filter(i=>i.region?.def.role===r).length}</span></button>)}
    </fieldset>}
    {!isData&&!isRegion&&!isCircuit&&<fieldset><legend>Model origin</legend>{sources.map(s=><label key={s}><input type="checkbox" checked={source===s} onChange={()=>setSource(source===s?"":s)}/>{s}</label>)}</fieldset>}
-   <div className="lib-explainer"><Icon name={kind==="NeuroBlock"?"block":"source"}/><strong>What is a {kind}?</strong><p>{KIND_HELP[kind]}</p><span>Source → module → composition</span></div>
+   <div className="lib-explainer"><Icon name={kindIconName(kind)}/><strong>What is a {kind}?</strong><p>{KIND_HELP[kind]}</p><span>Source → module → composition</span></div>
   </aside>
   <section className="lib-catalog" aria-label="Repository results">
    <div className="lib-results-head"><div><h2>{KIND_LABELS[kind]} <span>{filtered.length}</span></h2><p>{KIND_HELP[kind]}</p></div></div>
@@ -70,7 +68,7 @@ export function ExploreClient({items:serverItems}:{items:LibraryItem[]}){
    {notice&&<p role="status">{notice}</p>}
    <div className={"lib-repositories "+(view==="grid"?"as-grid":"")}>
     {filtered.map(item=><article className="lib-repo-row" key={item.id}>
-     <div className={"lib-avatar "+(item.origin==="local"?"violet":item.sourceType==="Connectome-derived"?"blue":"mint")}><Icon name={kind==="NeuroStack"?"stack":kind==="NeuroBlock"?"block":"source"} size={24}/></div>
+     <div className={"lib-avatar "+(item.origin==="local"?"violet":item.sourceType==="Connectome-derived"?"blue":"mint")}><Icon name={kindIconName(item.kind)} size={24}/></div>
      {item.motif&&<div className="lib-motif-figure"><MotifDiagram motif={item.motif}/></div>}
      <div className="lib-repo-main"><div className="lib-repo-title"><Link href={repoHref(item)}><span>{item.owner} / </span><strong>{item.name}</strong></Link><span className="lib-version">v{item.version}</span></div><p>{item.description}</p><div className="lib-row-tags">{item.circuit?<>
       <span className="lib-tag task">{item.circuit.common}</span>
@@ -114,22 +112,8 @@ export function ExploreClient({items:serverItems}:{items:LibraryItem[]}){
       {item.neurons!==null&&<span>{item.neurons.toLocaleString()} neurons</span>}
       <span>in {item.region.brains.length} brain{item.region.brains.length===1?"":"s"}</span>
       {item.region.def.hosts.length>0&&<span>{item.region.def.hosts.length} circuit{item.region.def.hosts.length===1?"":"s"} described</span>}
-     </>:item.dataset?<>{item.neurons!==null&&<span>{item.neurons.toLocaleString()} neurons</span>}{item.synapses!==null&&<span>{item.synapses>=1e6?(item.synapses/1e6).toFixed(0)+"M synapses":item.synapses.toLocaleString()+" synapses"}</span>}{(()=>{const f=primaryDownload(item.dataset!);return f?<span>{formatBytes(f.bytes!)} · {f.label.toLowerCase()}</span>:<span>size not published</span>;})()}{item.dataset.imagery&&<span>{item.dataset.imagery} imagery</span>}<span>{releaseDate(item.publishedAt)}</span></>:<>{item.neurons!==null&&<span>{item.neurons.toLocaleString()} neurons</span>}<span>{formatBytes(item.bytes)}</span><span>{item.origin==="local"?releaseDate(item.publishedAt):item.origin==="reference"?"Reference only":"Bundled example"}</span><span>{item.origin==="local"?"By "+item.owner:"synapsevm collection"}</span></>}</div>{item.composition&&<div className="lib-made-of">
-      <span className="lib-made-of-label">Made of</span>
-      <ol className="lib-chain">
-       {chainFor(item.composition).map(l=>(
-        <li key={l.id} className={l.verified?"is-verified":"is-attributed"}>
-         <Link href={"/explore/"+l.id} title={RELATION_HELP[l.relation]}>
-          <span className="lib-chain-rel">{RELATION_LABELS[l.relation]}</span>
-          <span className="lib-chain-name">{l.name}</span>
-         </Link>
-        </li>
-       ))}
-       <li className="is-self"><span><span className="lib-chain-rel">This</span><span className="lib-chain-name">{item.name}</span></span></li>
-      </ol>
-      {(()=>{const v=verifiedCount(item.composition!);return <span className="lib-chain-score" title="Claims backed by data in this repository, not by attribution alone">{v.verified}/{v.total} verified</span>;})()}
-     </div>}
-     <div className="lib-interface-line">{item.circuit?<>
+     </>:item.dataset?<>{item.neurons!==null&&<span>{item.neurons.toLocaleString()} neurons</span>}{item.synapses!==null&&<span>{item.synapses>=1e6?(item.synapses/1e6).toFixed(0)+"M synapses":item.synapses.toLocaleString()+" synapses"}</span>}{(()=>{const f=primaryDownload(item.dataset!);return f?<span>{formatBytes(f.bytes!)} · {f.label.toLowerCase()}</span>:<span>size not published</span>;})()}{item.dataset.imagery&&<span>{item.dataset.imagery} imagery</span>}<span>{releaseDate(item.publishedAt)}</span></>:<>{item.neurons!==null&&<span>{item.neurons.toLocaleString()} neurons</span>}<span>{formatBytes(item.bytes)}</span><span>{item.origin==="local"?releaseDate(item.publishedAt):item.origin==="reference"?"Reference only":"Bundled example"}</span><span>{item.origin==="local"?"By "+item.owner:"synapsevm collection"}</span></>}</div>
+     {(item.circuit||item.motif||item.brain||item.region||item.dataset)&&<div className="lib-interface-line">{item.circuit?<>
       <span className="lib-pathway">{item.circuit.stages.map(st=>st.population).join("  \u2192  ")}</span>
      </>:item.motif?<>
       <span>{item.motif.computes}</span>
@@ -138,16 +122,13 @@ export function ExploreClient({items:serverItems}:{items:LibraryItem[]}){
       <Link className="lib-source-link" href={"/explore/import?dataset="+item.brain.datasetSlug}>Attach data →</Link>
      </>:item.region?<>
       <span>{item.region.def.hosts.join(" · ")||item.region.def.group}</span>
-     </>:item.dataset?<><span>{item.dataset.scope}</span><a className="lib-source-link" href={item.dataset.homepage} target="_blank" rel="noreferrer noopener">Open source data ↗</a></>:<><span>{item.inputs.join(" · ")||"Source provenance"}</span><Icon name="arrow" size={14}/><span>{item.outputs.join(" · ")||"Referenced by LoomGuard"}</span></>}</div></div>
+     </>:item.dataset?<><span>{item.dataset.scope}</span><a className="lib-source-link" href={item.dataset.homepage} target="_blank" rel="noreferrer noopener">Open source data ↗</a></>:null}</div>}</div>
      <button className={"lib-bookmark "+(saved.includes(item.id)?"active":"")} aria-label={(saved.includes(item.id)?"Unsave ":"Save ")+item.name} aria-pressed={saved.includes(item.id)} onClick={()=>toggleSave(item.id)}><Icon name="save" size={17}/></button>
     </article>)}
    </div>
-   {!filtered.length&&<div className="lib-empty"><Icon name={selected.length?"search":"source"} size={32}/><h3>{selected.length?"No matching repositories":"This part of Discover is open."}</h3><p>{selected.length?"Try a different task, publisher, or interface.":"No "+KIND_LABELS[kind].toLowerCase()+" have been added yet. Explore the available modules and their source lineage."}</p><button className="lib-button" onClick={()=>{clear();if(!selected.length)chooseKind("NeuroBlock");}}>{selected.length?"Clear filters":"Browse Blocks"}</button></div>}
+   {!filtered.length&&<div className="lib-empty"><Icon name={selected.length?"search":kindIconName(kind)} size={32}/><h3>{selected.length?"No matching repositories":"This part of Discover is open."}</h3><p>{selected.length?"Try a different task, publisher, or interface.":"No "+KIND_LABELS[kind].toLowerCase()+" have been added yet. Explore the available modules and their source lineage."}</p><button className="lib-button" onClick={()=>{clear();if(!selected.length)chooseKind("NeuroBlock");}}>{selected.length?"Clear filters":"Browse Blocks"}</button></div>}
    <p className="lib-catalog-foot">{items.filter(i=>i.origin==="local").length} local community repositories · No external registry connected</p>
   </section>
-  <aside className="lib-community"><section className="lib-community-card"><div className="lib-eyebrow">BUILD IN THE OPEN</div><div className="lib-mini-graph" aria-hidden="true"><span><Icon name="source"/></span><i/><span><Icon name="block"/></span><i/><span><Icon name="stack"/></span></div><h3>Your next building block<br/>starts here.</h3><p>Give a neural module a home. Share its interface, source, and the tests that make it useful.</p><Link href="/explore/publish">Publish locally <Icon name="arrow" size={15}/></Link></section>
-   <section className="lib-feed"><h3><Icon name="clock" size={16}/> Recent publications</h3>{recent.length?recent.map(i=><Link href={repoHref(i)} key={i.id}><span className="lib-feed-dot"/><div><strong>{i.owner}/{i.name}</strong><p>Released v{i.version}</p><small>{releaseDate(i.publishedAt)}</small></div></Link>):<div className="lib-feed-empty"><Icon name="people" size={24}/><p>Make the first local release.</p><small>New publications will appear here, with their author and version.</small></div>}</section>
-   <section className="lib-guide"><h3>A clear path from biology to behavior.</h3><p><b>Sources</b> explain where it came from.</p><p><b>Blocks</b> define what it does.</p><p><b>Stacks</b> connect the pieces.</p><Link href="/compose">Open Compose <Icon name="arrow" size={14}/></Link></section>
-  </aside></div>
+  </div>
  </div>;
 }

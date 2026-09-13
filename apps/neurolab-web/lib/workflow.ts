@@ -1,7 +1,7 @@
 import {buildStack, canonical, digest, importStack, type ComposeGraph, type ComposePackage} from "./composeCompiler";
 import type {LibraryItem} from "./library";
 
-export const DRAFT_KEY = "synapsevm.compose.draft.v2";
+export const DRAFT_KEY = "synapsevm.compose.draft.v3";
 export const BUILD_KEY = "synapsevm.workflow.build.v1";
 export type BuildRecord = {pkg:ComposePackage; fingerprint:string; hash:string};
 export function draftFingerprint(draft:{graph:ComposeGraph;modules:Record<string,string>}) {

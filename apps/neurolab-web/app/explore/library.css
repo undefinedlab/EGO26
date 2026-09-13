@@ -134,9 +134,10 @@
 /* Kind tabs */
 .lib-kind-tabs {
   display: flex;
-  gap: var(--sp-6);
+  flex-wrap: wrap;
+  gap: 0.15rem var(--sp-5);
   border-bottom: 1px solid var(--line);
-  overflow: auto;
+  overflow: visible;
   margin-bottom: var(--sp-7);
 }
 
@@ -144,7 +145,7 @@
   border: 0;
   border-bottom: 2px solid transparent;
   background: none;
-  padding: 0.75rem 0 1rem;
+  padding: 0.55rem 0 0.7rem;
   display: flex;
   gap: 0.45rem;
   align-items: center;
@@ -182,7 +183,7 @@
 /* Layout */
 .lib-layout {
   display: grid;
-  grid-template-columns: 11.5rem minmax(0, 1fr) 13.75rem;
+  grid-template-columns: 11.5rem minmax(0, 1fr);
   gap: var(--sp-7);
   align-items: start;
 }
@@ -192,6 +193,8 @@
   padding-right: var(--sp-5);
   border-right: 1px solid var(--line);
   font-size: var(--fs-xs);
+  overflow: visible;
+  max-height: none;
 }
 
 .lib-filter-title {
@@ -1674,7 +1677,7 @@
 /* Responsive */
 @media (min-width: 1500px) {
   .lib-layout {
-    grid-template-columns: 12.5rem minmax(0, 1fr) 15rem;
+    grid-template-columns: 12.5rem minmax(0, 1fr);
     gap: 2rem;
   }
   .lib-repo-row {
@@ -2079,6 +2082,11 @@
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surface-2);
+}
+
+.lib-motif-figure--detail {
+  width: min(100%, 280px);
+  margin: var(--sp-4) 0;
 }
 
 .mx-diagram { width: 100%; height: auto; display: block; overflow: visible; }

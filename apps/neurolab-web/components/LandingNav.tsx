@@ -42,7 +42,7 @@ export function LandingNav() {
           </nav>
 
           <div className="float-nav-actions">
-            <Link href="/compose" className="btn btn-primary btn-sm btn-desktop">
+            <Link href="/explore" className="btn btn-primary btn-sm btn-desktop">
               Open Workbench
             </Link>
             <button
@@ -101,7 +101,7 @@ export function LandingNav() {
             <span>Local shelf · saved modules</span>
           </Link>
           <div className="mobile-sheet-divider" />
-          <Link href="/compose" className="btn btn-primary" onClick={() => setOpen(false)}>
+          <Link href="/explore" className="btn btn-primary" onClick={() => setOpen(false)}>
             Open Workbench
           </Link>
         </nav>

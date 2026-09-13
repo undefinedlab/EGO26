@@ -228,7 +228,7 @@ export function LandingPage() {
                 local, deterministic, and replayable by design.
               </p>
               <div className="hero-cta anim-rise-delay-2">
-                <Link href="/compose" className="btn btn-primary btn-lg">
+                <Link href="/explore" className="btn btn-primary btn-lg">
                   Open Workbench
                   <IconArrowRight />
                 </Link>
@@ -451,7 +451,7 @@ export function LandingPage() {
                 exactly what it did.
               </p>
               <div className="closer-actions">
-                <Link href="/compose" className="btn btn-primary btn-lg">
+                <Link href="/explore" className="btn btn-primary btn-lg">
                   Open Workbench
                   <IconArrowRight />
                 </Link>

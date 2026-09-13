@@ -276,7 +276,7 @@ export function compositionFor(id: string) {
 }
 
 /**
- * The compact chain shown on a card.
+ * The compact chain shown on a repository detail page.
  *
  * A Stack is defined by what it contains, so it shows its dependencies. A
  * Block is defined by where it came from, so it shows the Dataset → … → Motif
